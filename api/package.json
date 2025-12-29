@@ -1,0 +1,14 @@
+{
+  "name": "budgetforfun-api",
+  "version": "0.1.0",
+  "description": "Bun HTTP backend for BudgetForFun",
+  "type": "module",
+  "scripts": {
+    "server": "bun run server.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "bun-types": "latest",
+    "@types/bun": "latest"
+  }
+}
