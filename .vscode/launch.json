@@ -1,0 +1,67 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Bun Backend (localhost:3000)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/usr/local/bin/bun",
+      "program": "${workspaceFolder}/api/server.ts",
+      "cwd": "${workspaceFolder}/api",
+      "runtimeArgs": ["--inspect"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true,
+      "env": {
+        "NODE_ENV": "development"
+      }
+    },
+    {
+      "name": "Debug Svelte Frontend (Vite Dev Server)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "program": "${workspaceFolder}/node_modules/.bin/vite",
+      "cwd": "${workspaceFolder}",
+      "args": ["--debug"],
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Local:",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Debug Tauri App (Desktop)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "program": "${workspaceFolder}/node_modules/.bin/tauri",
+      "cwd": "${workspaceFolder}",
+      "args": ["dev"],
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Running",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    },
+    {
+      "name": "Debug All Services (Tauri + Bun + Vite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "program": "${workspaceFolder}/node_modules/.bin/tauri",
+      "cwd": "${workspaceFolder}",
+      "args": ["dev"],
+      "console": "integratedTerminal",
+      "preLaunchTask": "make dev",
+      "serverReadyAction": {
+        "pattern": "Running",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    }
+  ]
+}

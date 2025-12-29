@@ -1,0 +1,112 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "make: dev (All Services)",
+      "type": "shell",
+      "command": "make",
+      "args": ["dev"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "detail": "Start Tauri dev, Bun backend (localhost:3000), and Vite frontend",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "make: build (Tauri App)",
+      "type": "shell",
+      "command": "make",
+      "args": ["build"],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build Tauri application for current platform"
+    },
+    {
+      "label": "make: test (All Tests)",
+      "type": "shell",
+      "command": "make",
+      "args": ["test"],
+      "group": "test",
+      "problemMatcher": ["$tsc", "$eslint"],
+      "detail": "Run all test suites (Bun backend + Jest frontend + Playwright E2E)"
+    },
+    {
+      "label": "make: test: backend (Bun)",
+      "type": "shell",
+      "command": "make",
+      "args": ["test", "backend"],
+      "group": "test",
+      "problemMatcher": ["$tsc"],
+      "detail": "Run backend unit/integration/contract tests with Bun test runner"
+    },
+    {
+      "label": "make: test: frontend (Jest)",
+      "type": "shell",
+      "command": "make",
+      "args": ["test", "frontend"],
+      "group": "test",
+      "problemMatcher": ["$tsc", "$eslint"],
+      "detail": "Run frontend unit/integration tests with Jest"
+    },
+    {
+      "label": "make: test: e2e (Playwright)",
+      "type": "shell",
+      "command": "make",
+      "args": ["test", "e2e"],
+      "group": "test",
+      "problemMatcher": [],
+      "detail": "Run end-to-end tests with Playwright"
+    },
+    {
+      "label": "make: types (Generate from OpenAPI)",
+      "type": "shell",
+      "command": "make",
+      "args": ["types"],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Generate OpenAPI spec and Svelte types from backend"
+    },
+    {
+      "label": "make: clean (Build Artifacts)",
+      "type": "shell",
+      "command": "make",
+      "args": ["clean"],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Remove all build artifacts and temporary files"
+    },
+    {
+      "label": "make: format (Prettier)",
+      "type": "shell",
+      "command": "make",
+      "args": ["format"],
+      "group": "none",
+      "problemMatcher": [],
+      "detail": "Format all TypeScript, Svelte, and JSON files"
+    },
+    {
+      "label": "make: lint (ESLint)",
+      "type": "shell",
+      "command": "make",
+      "args": ["lint"],
+      "group": "none",
+      "problemMatcher": ["$eslint"],
+      "detail": "Run ESLint on backend and frontend code"
+    },
+    {
+      "label": "make: smoke-test (Build System Validation)",
+      "type": "shell",
+      "command": "make",
+      "args": ["smoke-test"],
+      "group": "test",
+      "problemMatcher": [],
+      "detail": "Validate Bun, Svelte, and Tauri integration works correctly"
+    }
+  ]
+}
