@@ -1,50 +1,215 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+==================
+Version change: 0.0.0 → 1.0.0
+Added sections: All sections (initial constitution creation)
+Templates requiring updates:
+  ✅ plan-template.md - Constitution Check section ready for principle-based gates
+  ✅ spec-template.md - Aligned with quality-focused principles
+  ✅ tasks-template.md - Task categorization reflects testing and user story principles
+Follow-up TODOs: None
+-->
+
+# BudgetForFun Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. User-Centric Simplicity
+Features MUST be designed for user delight and ease of use. Every interface component MUST have clear purpose, intuitive navigation, and minimal cognitive load. Rationale: Budgeting is inherently stressful; the application MUST reduce friction and make financial management genuinely enjoyable through thoughtful design.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Test-First Development (NON-NEGOTIABLE)
+TDD is mandatory for all non-trivial functionality. Tests MUST be written BEFORE implementation, and MUST fail initially to verify requirements. Red-Green-Refactor cycle MUST be strictly enforced. Rationale: Ensures code quality, catches regressions early, serves as living documentation, and enables confident refactoring.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Incremental Delivery
+Features MUST be delivered as independent, shippable increments based on prioritized user stories. Each user story MUST be independently testable and demonstrable. No story should block another; integration points must be designed for parallel development. Rationale: Enables faster value delivery, reduces risk, allows user feedback after each increment, and prevents monolithic releases.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Specification Before Implementation
+No code implementation begins without an approved specification. Specifications MUST be technology-agnostic, focused on user value, and contain measurable success criteria. All [NEEDS CLARIFICATION] markers MUST be resolved before planning. Rationale: Prevents scope creep, ensures stakeholder alignment, enables accurate estimation, and focuses development on delivering real user value.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Observability & Debuggability
+The application MUST provide comprehensive visibility into its behavior through structured logging, clear error messages, and actionable diagnostics. User-facing errors MUST be human-readable with actionable next steps. Rationale: Users need to understand what happened and what to do next; developers need visibility into production issues without reproducing them locally.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Build and Run Locality
+The application will be build on web frameworks, but will only run in a local mode inside a web container (similar to Electron). It will be easy to install and build, compiling down to a single binary file.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### VII. Portability and Compatibility
+The application MUST be portable across different operating systems and environments. It MUST be compatible with a wide range of hardware and software configurations. Rationale: Ensures broad accessibility and usability, accommodating diverse user needs and preferences.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### VIII. Local file storage
+The application will store it's user data locally. It can be "backed up" to a cloud service using synchronized directories such as Google Drive or iCloud. It does not need be aware of these services - it will only know directories on disk.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### IX. More than just a spreadsheet
+The application will be more than just a spreadsheet. It must provide value beyond simple data organization and manipulation. It should offer features such as data visualization, automation.
+
+### X. Avoid silly libraries
+The application will often need to import third party libraries - but when a simple local implementation is possible, it SHOULD be preferred over a third party library. Rationale: Reduces complexity, improves performance, and ensures compatibility with the application's architecture.
+
+### XI. Makefiles for automation
+The application build, test and quality assurance processes will be automated using Makefiles. Rationale: Ensures consistency, reduces manual errors, and improves efficiency.
+
+### XII. User Documentation Conciseness
+The application documentation will be valuable and will not have common AI slop smells. The documentation should be relevant, concise and accurate. 
+
+### XIII. User Interface Consistency
+The application user interface will be consistent and intuitive. Rationale: Ensures a positive user experience and reduces cognitive load.
+
+### XIV. API Documentation
+Any API documentation outside of the codebase comments itself must be autogenerated. We do not want to rely on AI LLM to generate API documentation. You will use OpenAPI spec exclusively. All APIs MUST be documented using OpenAPI spec.
+
+### XV. No Containers
+The application is locally run on any machine that meets the minimum requirements, a container environment such as Docker or Kubernetes MUST NOT be used. 
+
+### XVI. Bun Backend
+Backend stack:
+- Runtime: Bun (native TypeScript support)
+- Framework: bun.serve() for HTTP server
+- Port: localhost:3000 (internal IPC only)
+- Process: Started/stopped by Tauri (user unaware)
+- Development: Full TypeScript type safety, no build step
+
+### XVII. Backend Transparency
+Backend implementation requirements:
+- No user-facing terminal or server logs
+- All data flow is automatic and invisible
+- User interacts only through Tauri desktop interface
+- Storage is automatic (JSON file writes are silent)
+
+### XVIII. Tauri Desktop Shell
+Frontend requirements:
+- Framework: Tauri + lightweight UI (React, Vue, or vanilla HTML)
+- Process: Native WebView (no bundled Chromium)
+- IPC: Communicates with Bun backend over localhost HTTP
+- Bundling: Single executable, <10MB total
+- OS Support: macOS, Windows, Linux
+
+### XIX. SvelteKit Frontend
+Frontend implementation requirements:
+- Framework: Svelte (not React, Vue, or vanilla JS)
+- Build tool: Vite (Svelte default, blazing fast)
+- Compilation: To vanilla JS (no runtime dependency)
+- Bundle size: Target <100KB gzipped (including CSS)
+- No external UI framework dependencies (build custom or use lightweight CSS)
+
+### XX. Component structure
+- One concern per component (BudgetForm, TransactionList, CategorySelector, etc.)
+- Props for data input, events for data output
+- Reactive declarations ($: reactive statements) for derived state
+- Store integration (Svelte stores) for global UI state only
+
+### XXI. Reactive Declarations Over State Management
+State management hierarchy:
+1. Local component state (let variables) for UI-only state
+2. Svelte stores (writable, readable) for cross-component state
+3. NO Redux, Pinia, or external state libraries
+4. NO useState-style hooks (Svelte doesn't need them)
+
+### XXII. Code Organization and Documentation
+- Organize code into logical sections (components, stores, utils)
+- Document each component, store, and utility function
+- Use JSDoc or TypeScript comments for clarity
+
+### XXIII. Styling via Scoped CSS Only
+CSS requirements:
+- Scoped styles in <style> blocks (CSS is component-local by default)
+- CSS variables for theming (defined in root component)
+- Mobile-first responsive design (media queries)
+- NO Tailwind, Bootstrap, or utility CSS frameworks
+- Consistent spacing, colors, typography via CSS custom properties
+
+### XXIV. No External UI Component Libraries
+Component implementation:
+- Use semantic HTML (<button>, <input>, <form>, <select>, etc.)
+- Style with scoped CSS in component blocks
+- NO Material-UI, shadcn/ui, Headless UI, or component libraries
+- Build custom: inputs, buttons, modals, lists, forms
+- Rationale: Keeps bundle small, code transparent to AI, no dependency bloat
+
+### XXV. Tauri IPC Integration
+Tauri integration:
+- Import @tauri-apps/api for native functionality
+- Use tauri.invoke() for backend IPC when needed
+- Handle window lifecycle (minimize, maximize, close events)
+- Error handling for Tauri-specific failures
+- File system access through Tauri (not Node.js fs module)
+
+### XXVI. AI-Readable Code Structure
+Code readability standards:
+- Single responsibility per component
+- Descriptive variable names (no single letters except loops)
+- Comments above complex logic (especially fetch/async)
+- Explicit event bindings (on:click, on:submit, bind:value)
+- No clever destructuring or advanced JS patterns
+- Readable JSDoc comments on component props
+
+
+### X
+
+## Quality Standards
+
+**Code Quality**:
+- All code MUST pass linting and type checking before merging
+- Functions and modules MUST have single, clear responsibilities
+- Dead code MUST be removed immediately upon discovery
+- Magic numbers and strings MUST be extracted to named constants
+
+**Performance**:
+- Core user flows MUST complete within 2 seconds on standard hardware
+- Application MUST support 10,000 concurrent users without degradation
+- Data pagination MUST be implemented for all list views exceeding 20 items
+
+**Security**:
+- All user data MUST be encrypted at rest and in transit
+- Authentication tokens MUST expire and support refresh mechanisms
+- Sensitive financial data MUST never be logged or exposed in error messages
+- Input validation MUST occur at both client and server boundaries
+
+## Development Workflow
+
+**Feature Lifecycle**:
+1. `/speckit.specify` - Create user-focused specification with prioritized stories
+2. `/speckit.clarify` - Resolve all [NEEDS CLARIFICATION] markers
+3. `/speckit.plan` - Build technical plan with architecture and contracts
+4. `/speckit.tasks` - Generate implementation tasks organized by user story
+5. `/speckit.implement` - Execute tasks following test-first approach
+6. `/speckit.checklist` - Validate quality and completeness before merge
+
+**Code Review Requirements**:
+- All code changes MUST be reviewed by at least one other developer
+- Tests MUST pass locally before pull request submission
+- Pull requests MUST include updated documentation and spec amendments if needed
+- Integration tests MUST pass in CI/CD pipeline before merge approval
+
+**Definition of Done**:
+- All user stories in scope have implemented acceptance tests that pass
+- Code passes linting, type checking, and security scanning
+- Documentation is updated (API docs, user guides, changelog)
+- Performance and accessibility standards are verified
+- No blocking bugs or open issues related to the feature
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+**Constitution Authority**:
+This constitution supersedes all other development practices. In case of conflict between constitution and other documents, the constitution governs.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Amendment Procedure**:
+- Proposals MUST be submitted via `/speckit.constitution` with clear rationale
+- Amendments MUST be discussed and approved by project maintainers
+- Version MUST be incremented following semantic versioning (MAJOR.MINOR.PATCH)
+- All dependent templates MUST be updated to reflect changes
+- Migration plan MUST be provided for breaking changes (MAJOR version)
+
+**Versioning Policy**:
+- MAJOR: Backward-incompatible principle removals or redefinitions
+- MINOR: New principle/section added or materially expanded guidance
+- PATCH: Clarifications, wording improvements, non-semantic refinements
+
+**Compliance Review**:
+- All pull requests MUST be reviewed for constitutional compliance
+- CI/CD pipeline MUST validate adherence to quality standards
+- Violations MUST be documented with justification in complexity tracking
+- Regular audits (quarterly) MUST assess constitutional adherence
+
+**Runtime Guidance**:
+Use `.specify/templates/plan-template.md` for project planning decisions and this constitution for principle-level guidance. When in doubt, prioritize user value and simplicity over technical optimization.
+
+**Version**: 1.0.0 | **Ratified**: 2025-12-29 | **Last Amended**: 2025-12-29
