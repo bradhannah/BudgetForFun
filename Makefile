@@ -1,7 +1,7 @@
 # BudgetForFun Makefile
 # Makefile-based build automation for Tauri + Bun + Svelte development workflow
 
-.PHONY: help dev build clean test lint format types smoke-test install-dev install-all
+.PHONY: help dev build clean test lint format types smoke-test install-prereqs install-dev install-all
 
 # Default target
 help: ## Show this help message
@@ -15,6 +15,11 @@ help: ## Show this help message
 	@echo "  make clean     Remove build artifacts"
 	@echo "  make types     Generate OpenAPI spec and Svelte types"
 	@echo ""
+	@echo "Installation Targets:"
+	@echo "  make install-prereqs  Install Bun via official script"
+	@echo "  make install-dev      Install all development dependencies"
+	@echo "  make install-all      Install all dependencies (Bun + npm)"
+	@echo ""
 	@echo "Testing Targets:"
 	@echo "  make test      Run all tests (Bun + Jest + Playwright)"
 	@echo "  make test-backend   Run backend tests (Bun)"
@@ -25,10 +30,21 @@ help: ## Show this help message
 	@echo "Quality Targets:"
 	@echo "  make lint      Run ESLint checks"
 	@echo "  make format    Format all files with Prettier"
-	@echo ""
-	@echo "Installation Targets:"
-	@echo "  make install-dev    Install all development dependencies"
-	@echo "  make install-all    Install all dependencies (Bun + npm)"
+
+# Installation
+install-prereqs: ## Install Bun via official script
+	@echo "Checking if Bun is installed..."
+	@if command -v bun >/dev/null 2>&1; then \
+		echo "✓ Bun is already installed"; \
+	else \
+		echo "Installing Bun via official script..."; \
+		curl -fsSL https://bun.sh/install | bash; \
+		echo ""; \
+		echo "✓ Bun installation complete"; \
+		echo ""; \
+		echo "IMPORTANT: Please close and reopen your terminal to use Bun"; \
+		echo "Alternatively, refresh your shell: exec $$SHELL"; \
+	fi
 
 # Development
 dev: ## Start all services (Tauri + Bun + Vite)
@@ -146,46 +162,3 @@ install-bun: ## Install Bun backend dependencies
 install-npm: ## Install npm dependencies (frontend, Tauri, tools)
 	@echo "Installing npm dependencies..."
 	@npm install
-
-# Installation
-install-dev: ## Install all development dependencies
-	@echo "Installing development dependencies..."
-	@make install-bun
-	@make install-npm
-	@echo "Development dependencies installed"
-
-install-all: ## Install all dependencies
-	@make install-bun
-	@make install-npm
-	@echo "All dependencies installed"
-
-install-bun: ## Install Bun backend dependencies
-	@echo "Installing Bun dependencies (api/)..."
-	@cd api && bun install
-	@echo "Bun dependencies installed"
-
-install-npm: ## Install npm dependencies (frontend, Tauri, tools)
-	@echo "Installing npm dependencies..."
-	@npm install
-	@echo "npm dependencies installed"
-
-# Installation
-install-dev: ## Install all development dependencies
-	@echo "Installing development dependencies..."
-	@make install-bun
-	@make install-npm
-	@echo "Development dependencies installed"
-
-install-all: ## Install all dependencies
-	@make install-bun
-	@make install-npm
-	@echo "All dependencies installed"
-
-install-bun: ## Install Bun backend dependencies
-	@echo "Installing Bun dependencies (api/)..."
-	@cd api && bun install
-
-install-npm: ## Install npm dependencies (frontend, Tauri, tools)
-	@echo "Installing npm dependencies..."
-	@npm install
-	@echo "npm dependencies installed"
