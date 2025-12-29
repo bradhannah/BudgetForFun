@@ -1,12 +1,19 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 0.0.0 → 1.0.0
-Added sections: All sections (initial constitution creation)
+Version change: 1.0.0 → 2.0.0
+Modified principles: None (all additions)
+Added principles: VI-XXVI (21 new architecture-specific principles)
+Modified sections:
+  - Quality Standards: Adapted for local-first desktop application context
+  - Development Workflow: Added Makefile automation
+Removed sections: None
 Templates requiring updates:
-  ✅ plan-template.md - Constitution Check section ready for principle-based gates
-  ✅ spec-template.md - Aligned with quality-focused principles
-  ✅ tasks-template.md - Task categorization reflects testing and user story principles
+  ⚠ plan-template.md - Technical Context needs Bun/Svelte/Tauri values
+  ⚠ plan-template.md - Project structure needs Tauri-specific layout
+  ⚠ plan-template.md - Constitution Check needs new principle gates
+  ⚠ spec-template.md - Scope needs local-app constraints
+  ⚠ tasks-template.md - Task categories need Makefile integration
 Follow-up TODOs: None
 -->
 
@@ -36,7 +43,7 @@ The application will be build on web frameworks, but will only run in a local mo
 The application MUST be portable across different operating systems and environments. It MUST be compatible with a wide range of hardware and software configurations. Rationale: Ensures broad accessibility and usability, accommodating diverse user needs and preferences.
 
 ### VIII. Local file storage
-The application will store it's user data locally. It can be "backed up" to a cloud service using synchronized directories such as Google Drive or iCloud. It does not need be aware of these services - it will only know directories on disk.
+The application will store its user data locally. It can be "backed up" to a cloud service using synchronized directories such as Google Drive or iCloud. It does not need be aware of these services - it will only know directories on disk.
 
 ### IX. More than just a spreadsheet
 The application will be more than just a spreadsheet. It must provide value beyond simple data organization and manipulation. It should offer features such as data visualization, automation.
@@ -76,7 +83,7 @@ Backend implementation requirements:
 
 ### XVIII. Tauri Desktop Shell
 Frontend requirements:
-- Framework: Tauri + lightweight UI (React, Vue, or vanilla HTML)
+- Framework: Tauri + Svelte
 - Process: Native WebView (no bundled Chromium)
 - IPC: Communicates with Bun backend over localhost HTTP
 - Bundling: Single executable, <10MB total
@@ -142,8 +149,6 @@ Code readability standards:
 - Readable JSDoc comments on component props
 
 
-### X
-
 ## Quality Standards
 
 **Code Quality**:
@@ -154,14 +159,15 @@ Code readability standards:
 
 **Performance**:
 - Core user flows MUST complete within 2 seconds on standard hardware
-- Application MUST support 10,000 concurrent users without degradation
-- Data pagination MUST be implemented for all list views exceeding 20 items
+- Application MUST remain responsive with typical budget data (thousands of transactions)
+- Data pagination MUST be implemented for lists when it improves usability
+- UI updates MUST not block the main thread
 
 **Security**:
-- All user data MUST be encrypted at rest and in transit
-- Authentication tokens MUST expire and support refresh mechanisms
+- User data stored locally without application-level encryption (relies on OS file encryption when available)
 - Sensitive financial data MUST never be logged or exposed in error messages
-- Input validation MUST occur at both client and server boundaries
+- Input validation MUST occur at all data boundaries (user input, IPC, file operations)
+- No external network communication except localhost IPC between Bun backend and Tauri frontend
 
 ## Development Workflow
 
@@ -173,17 +179,25 @@ Code readability standards:
 5. `/speckit.implement` - Execute tasks following test-first approach
 6. `/speckit.checklist` - Validate quality and completeness before merge
 
+**Build Automation (Makefiles)**:
+- `make build` - Build Tauri app for current platform
+- `make dev` - Start development server (Bun + Vite + Tauri dev)
+- `make test` - Run Bun test suite
+- `make lint` - Run linter and type checker
+- `make format` - Format code
+- `make clean` - Clean build artifacts
+
 **Code Review Requirements**:
 - All code changes MUST be reviewed by at least one other developer
 - Tests MUST pass locally before pull request submission
 - Pull requests MUST include updated documentation and spec amendments if needed
-- Integration tests MUST pass in CI/CD pipeline before merge approval
+- All Makefile targets MUST run successfully before merge approval
 
 **Definition of Done**:
 - All user stories in scope have implemented acceptance tests that pass
-- Code passes linting, type checking, and security scanning
-- Documentation is updated (API docs, user guides, changelog)
-- Performance and accessibility standards are verified
+- Code passes linting, type checking, and Makefile validation
+- Documentation is updated (API docs via OpenAPI, user guides, changelog)
+- Application builds and runs successfully on all target platforms (or tested on current platform)
 - No blocking bugs or open issues related to the feature
 
 ## Governance
@@ -205,11 +219,11 @@ This constitution supersedes all other development practices. In case of conflic
 
 **Compliance Review**:
 - All pull requests MUST be reviewed for constitutional compliance
-- CI/CD pipeline MUST validate adherence to quality standards
+- Makefile targets MUST validate adherence to quality standards
 - Violations MUST be documented with justification in complexity tracking
 - Regular audits (quarterly) MUST assess constitutional adherence
 
 **Runtime Guidance**:
 Use `.specify/templates/plan-template.md` for project planning decisions and this constitution for principle-level guidance. When in doubt, prioritize user value and simplicity over technical optimization.
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-29 | **Last Amended**: 2025-12-29
+**Version**: 2.0.0 | **Ratified**: 2025-12-29 | **Last Amended**: 2025-12-29
