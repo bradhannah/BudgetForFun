@@ -1,11 +1,30 @@
 # BudgetForFun Makefile
 # Makefile-based build automation for Tauri + Bun + Svelte development workflow
+# Includes automatic prerequisite installation for macOS using Homebrew
 
-.PHONY: help dev build clean test lint format types smoke-test install-dev install-all
+.PHONY: help dev build clean test lint format types smoke-test install-prereqs install-dev install-all
+
+# Platform detection
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	IS_MAC := yes
+else ifeq ($(UNAME_S),Linux)
+	IS_MAC := no
+else ifeq ($(OS),Windows_NT)
+	IS_MAC := no
+endif
+
+# Check for required tools
+BUN_EXISTS := $(shell command -v bun >/dev/null 2>&1 && echo "yes" || echo "no")
+NODE_EXISTS := $(shell command -v node >/dev/null 2>&1 && echo "yes" || echo "no")
+BREW_EXISTS := $(shell command -v brew >/dev/null 2>&1 && echo "yes" || echo "no")
 
 # Default target
 help: ## Show this help message
 	@echo "BudgetForFun Makefile - Build Automation"
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  make install-prereqs    Check and install missing tools (Bun, Node.js, Homebrew on macOS)"
 	@echo ""
 	@echo "Development Targets:"
 	@echo "  make dev       Start all services (Tauri + Bun + Vite)"
@@ -30,12 +49,64 @@ help: ## Show this help message
 	@echo "  make install-dev    Install all development dependencies"
 	@echo "  make install-all    Install all dependencies (Bun + npm)"
 
+# Prerequisites
+install-prereqs: ## Check and install missing tools (Bun, Node.js, Homebrew on macOS)
+	@echo "Checking prerequisites..."
+	@$(MAKE) check-prereqs
+	@$(MAKE) install-missing-tools
+
+check-prereqs: ## Check which prerequisites are installed
+	@echo "Platform: $(UNAME_S)"
+	@echo "Bun installed: $(BUN_EXISTS)"
+	@echo "Node.js installed: $(NODE_EXISTS)"
+ifeq ($(IS_MAC),yes)
+	@echo "Homebrew installed: $(BREW_EXISTS)"
+endif
+	@echo ""
+ifeq ($(BUN_EXISTS),yes)
+	@echo "✓ Bun is installed"
+else
+	@echo "✗ Bun is NOT installed - run 'make install-prereqs' to install"
+endif
+ifeq ($(NODE_EXISTS),yes)
+	@echo "✓ Node.js is installed"
+else
+	@echo "✗ Node.js is NOT installed - run 'make install-prereqs' to install"
+endif
+
+install-missing-tools: ## Install missing prerequisite tools
+ifeq ($(IS_MAC),yes)
+ifeq ($(BUN_EXISTS),no)
+	@echo "Installing Bun via Homebrew..."
+	@brew install bun
+	@echo "Bun installed successfully"
+	@echo ""
+	@echo "Please close and reopen your terminal to use Bun"
+else
+ifeq ($(NODE_EXISTS),no)
+	@echo "Installing Node.js via Homebrew..."
+	@brew install node
+	@echo "Node.js installed successfully"
+	@echo ""
+	@echo "Please close and reopen your terminal to use Node.js"
+endif
+else
+	@echo "To install Bun on Linux: curl -fsSL https://bun.sh/install | bash"
+	@echo "To install Node.js on Linux: Use your package manager (apt, yum, dnf, etc.)"
+	@echo "For Windows installation, see: https://bun.sh/docs/installation"
+endif
+
 # Development
 dev: ## Start all services (Tauri + Bun + Vite)
+	@$(MAKE) check-prereqs
+ifeq ($(BUN_EXISTS),no)
+	@echo "ERROR: Bun is not installed. Run 'make install-prereqs' to install."
+	@exit 1
+endif
 	@echo "Starting all services in background..."
-	@make start-bun & \
-	make start-vite & \
-	tauri dev
+	@$(MAKE) start-bun & \
+	$(MAKE) start-vite & \
+	npm run tauri dev
 	@wait
 
 start-bun: ## Start Bun backend server on localhost:3000
@@ -48,6 +119,7 @@ start-vite: ## Start Vite dev server
 
 # Build
 build: ## Build Tauri application for current platform
+	@$(MAKE) check-prereqs
 	@echo "Building Tauri application..."
 	@npm run build
 
@@ -57,11 +129,12 @@ clean: ## Remove build artifacts and temporary files
 	@rm -rf src-tauri/target
 	@rm -rf dist
 	@rm -rf node_modules/.vite
-	@find . -type d -name ".svelte-kit" -exec rm -rf {} +
+	@find . -type d -name ".svelte-kit" -exec rm -rf {} \;
 	@echo "Clean complete"
 
 # Type generation
 types: ## Generate OpenAPI spec and Svelte types
+	@$(MAKE) check-prereqs
 	@echo "Generating OpenAPI spec from backend types..."
 	@cd api && bun run scripts/generate-openapi.ts
 	@echo "Generating Svelte types from OpenAPI spec..."
@@ -70,6 +143,7 @@ types: ## Generate OpenAPI spec and Svelte types
 
 # Testing
 test: ## Run all tests (Bun backend + Jest frontend + Playwright E2E)
+	@$(MAKE) check-prereqs
 	@echo "Running all test suites..."
 	@$(MAKE) test-backend
 	@$(MAKE) test-frontend
@@ -90,6 +164,7 @@ test-e2e: ## Run E2E tests with Playwright
 
 # Quality
 lint: ## Run ESLint checks
+	@$(MAKE) check-prereqs
 	@echo "Running ESLint..."
 	@$(MAKE) lint-backend
 	@$(MAKE) lint-frontend
@@ -109,6 +184,11 @@ format: ## Format all files with Prettier
 
 # Smoke test (build system validation)
 smoke-test: ## Validate Bun, Svelte, and Tauri integration
+	@$(MAKE) check-prereqs
+ifeq ($(BUN_EXISTS),no)
+	@echo "ERROR: Bun is not installed. Run 'make install-prereqs' to install."
+	@exit 1
+endif
 	@echo "Starting smoke test..."
 	@echo "1. Starting Bun server on localhost:3000..."
 	@cd api && bun run server.ts &
@@ -129,21 +209,36 @@ smoke-test: ## Validate Bun, Svelte, and Tauri integration
 
 # Installation
 install-dev: ## Install all development dependencies
+	@$(MAKE) check-prereqs
+ifeq ($(BUN_EXISTS),no)
+	@echo "ERROR: Bun is not installed. Run 'make install-prereqs' to install."
+	@exit 1
+endif
 	@echo "Installing development dependencies..."
 	@$(MAKE) install-bun
 	@$(MAKE) install-npm
 	@echo "Development dependencies installed"
 
 install-all: ## Install all dependencies
-	@echo "Installing all dependencies..."
-	@$(MAKE) install-bun
-	@$(MAKE) install-npm
+	@$(MAKE) check-prereqs
+	@$(MAKE) install-prereqs
+	@$(MAKE) install-dev
 	@echo "All dependencies installed"
 
 install-bun: ## Install Bun backend dependencies
+	@$(MAKE) check-prereqs
+ifeq ($(BUN_EXISTS),no)
+	@echo "ERROR: Bun is not installed. Run 'make install-prereqs' to install."
+	@exit 1
+endif
 	@echo "Installing Bun dependencies (api/)..."
 	@cd api && bun install
 
 install-npm: ## Install npm dependencies (frontend, Tauri, tools)
+	@$(MAKE) check-prereqs
+ifeq ($(NODE_EXISTS),no)
+	@echo "ERROR: Node.js is not installed. Run 'make install-prereqs' to install."
+	@exit 1
+endif
 	@echo "Installing npm dependencies..."
 	@npm install
