@@ -1,7 +1,9 @@
-// Incomes Service - CRUD operations with storage integration
+// Incomes Service - Minimal version
 
-import { StorageService } from './storage';
-import { ValidationService } from './validation';
+import { StorageServiceImpl } from './storage';
+import { ValidationServiceImpl } from './validation';
+import type { StorageService } from './storage';
+import type { ValidationService } from './validation';
 import type { 
   Income, 
   ValidationResult 
@@ -22,8 +24,8 @@ export class IncomesServiceImpl implements IncomesService {
   private validation: ValidationService;
   
   constructor() {
-    this.storage = StorageService.getInstance();
-    this.validation = ValidationService.getInstance();
+    this.storage = StorageServiceImpl.getInstance();
+    this.validation = ValidationServiceImpl.getInstance();
   }
   
   public async getAll(): Promise<Income[]> {

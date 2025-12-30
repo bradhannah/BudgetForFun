@@ -153,6 +153,15 @@ type DefaultEntity = Bill | Income | PaymentSource | Category;
 type InstanceEntity = BillInstance | IncomeInstance;
 
 // ============================================================================
+// Validation Types
+// ============================================================================
+
+interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
+
+// ============================================================================
 // Exports
 // ============================================================================
 
@@ -174,5 +183,6 @@ export type {
   Expense,
   Entity,
   DefaultEntity,
-  InstanceEntity
+  InstanceEntity,
+  ValidationResult
 };

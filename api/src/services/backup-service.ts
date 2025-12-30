@@ -1,6 +1,7 @@
 // Backup Service - Full backup and restore functionality
 
-import { StorageService } from './storage';
+import { StorageServiceImpl } from './storage';
+import type { StorageService } from './storage';
 import type { 
   BackupFileData,
   Bill,
@@ -28,7 +29,7 @@ export class BackupServiceImpl implements BackupService {
   }
   
   constructor() {
-    this.storage = StorageService.getInstance();
+    this.storage = StorageServiceImpl.getInstance();
   }
 
   public async exportBackup(): Promise<BackupFileData> {

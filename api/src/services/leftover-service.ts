@@ -1,7 +1,9 @@
 // Leftover Service - Calculate "leftover at end of month" value
 
-import { MonthsService } from './months-service';
-import { PaymentSourcesService, PaymentSourcesServiceImpl } from './payment-sources-service';
+import { MonthsServiceImpl } from './months-service';
+import { PaymentSourcesServiceImpl } from './payment-sources-service';
+import type { MonthsService } from './months-service';
+import type { PaymentSourcesService } from './payment-sources-service';
 import type { 
   MonthlyData,
   PaymentSource 

@@ -1,6 +1,7 @@
 // Undo Service - Undo stack management for reverting changes
 
-import { StorageService } from './storage';
+import { StorageServiceImpl } from './storage';
+import type { StorageService } from './storage';
 import type { 
   UndoEntry, 
   UndoEntityType 
@@ -28,7 +29,7 @@ export class UndoServiceImpl implements UndoService {
   }
   
   constructor() {
-    this.storage = StorageService.getInstance();
+    this.storage = StorageServiceImpl.getInstance();
   }
   
   public async pushChange(entry: UndoEntry): Promise<void> {

@@ -1,6 +1,7 @@
-// Payment Sources Service - CRUD operations with storage integration
+// Payment Sources Service - Minimal version
 
-import { StorageService } from './storage';
+import { StorageServiceImpl } from './storage';
+import type { StorageService } from './storage';
 import type { 
   PaymentSource, 
   ValidationResult 
@@ -20,7 +21,7 @@ export class PaymentSourcesServiceImpl implements PaymentSourcesService {
   private storage: StorageService;
   
   constructor() {
-    this.storage = StorageService.getInstance();
+    this.storage = StorageServiceImpl.getInstance();
   }
   
   public async getAll(): Promise<PaymentSource[]> {

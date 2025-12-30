@@ -1,7 +1,7 @@
 // Bun HTTP Server for BudgetForFun
 // Handles backend API for IPC communication with Tauri frontend
 // Runs on localhost:3000
-// Uses tsoa controllers with Bun bridge for routing
+// Uses simple routing with Bun serve
 
 import { serve } from 'bun';
 import { routes } from './src/routes';
@@ -17,11 +17,19 @@ const server = serve({
     
     console.log(`Request: ${req.method} ${path}`);
     
-    for (const [routePath, route] of routes.entries()) {
-      if ((path === routePath || path === `/api/${routePath}`) && req.method === route.method) {
+    // Find matching route
+    for (const route of routes) {
+      const { path: routePath, definition } = route;
+      
+      // Check if path matches (exact match or starts with for path params)
+      const pathMatches = definition.hasPathParam 
+        ? path.startsWith(routePath + '/') || path === routePath
+        : path === routePath;
+      
+      if (pathMatches && req.method === definition.method) {
         try {
-          console.log(` -> Matched route: ${path}`);
-          return await route.handler(req);
+          console.log(` -> Matched route: ${routePath} [${definition.method}]`);
+          return await definition.handler(req);
         } catch (error) {
           console.error('Server error:', error);
           return new Response(
@@ -49,4 +57,4 @@ const server = serve({
 
 console.log(`Bun backend server running on http://localhost:${PORT}`);
 console.log(`Health check: http://localhost:${PORT}/health`);
-console.log(`API endpoints:`, Array.from(routes.keys()));
+console.log(`API endpoints:`, routes.map(r => `${r.definition.method} ${r.path}`));

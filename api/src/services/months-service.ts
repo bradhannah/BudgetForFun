@@ -1,8 +1,11 @@
 // Months Service - Generate and manage monthly budget data
 
-import { StorageService } from './storage';
-import { BillsService, BillsServiceImpl } from './bills-service';
-import { IncomesService, IncomesServiceImpl } from './incomes-service';
+import { StorageServiceImpl } from './storage';
+import { BillsServiceImpl } from './bills-service';
+import { IncomesServiceImpl } from './incomes-service';
+import type { StorageService } from './storage';
+import type { BillsService } from './bills-service';
+import type { IncomesService } from './incomes-service';
 import type { 
   MonthlyData,
   BillInstance,
@@ -32,7 +35,7 @@ export class MonthsServiceImpl implements MonthsService {
   private incomesService: IncomesService;
   
   constructor() {
-    this.storage = StorageService.getInstance();
+    this.storage = StorageServiceImpl.getInstance();
     this.billsService = new BillsServiceImpl();
     this.incomesService = new IncomesServiceImpl();
   }

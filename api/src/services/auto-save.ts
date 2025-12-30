@@ -1,6 +1,7 @@
 // Auto-Save Service - Debounced auto-save mechanism for entity changes
 
-import { StorageService } from './storage';
+import { StorageServiceImpl } from './storage';
+import type { StorageService } from './storage';
 
 export interface AutoSaveService {
   queueSave(entityType: string, data: unknown): void;
@@ -22,7 +23,7 @@ export class AutoSaveServiceImpl implements AutoSaveService {
   }
   
   constructor(debounceMs: number = 500) {
-    this.storage = StorageService.getInstance();
+    this.storage = StorageServiceImpl.getInstance();
     this.saveQueue = new Map();
     this.debounceMs = debounceMs;
   }

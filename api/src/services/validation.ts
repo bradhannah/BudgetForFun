@@ -1,6 +1,7 @@
 // Validation Service - Data integrity checks for all entities
 
-import { StorageService } from './storage';
+import { StorageServiceImpl } from './storage';
+import type { StorageService } from './storage';
 import type { 
   Bill, 
   Income, 
@@ -40,7 +41,7 @@ export class ValidationServiceImpl implements ValidationService {
   }
   
   constructor() {
-    this.storage = StorageService.getInstance();
+    this.storage = StorageServiceImpl.getInstance();
   }
   
   validateBill(bill: Partial<Bill>): ValidationResult {
