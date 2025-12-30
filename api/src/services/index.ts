@@ -1,11 +1,10 @@
-// Placeholder for service exports
-// Services will be implemented in Phase 4 (Foundational Services)
+// Services Index - Exports all service implementations
 
 export * from './storage';
 export * from './validation';
+export * from './payment-sources-service';
 export * from './bills-service';
 export * from './incomes-service';
-export * from './payment-sources-service';
 export * from './categories-service';
 export * from './months-service';
 export * from './backup-service';

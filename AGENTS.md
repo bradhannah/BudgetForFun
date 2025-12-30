@@ -38,12 +38,26 @@ tests/
 
 - Phase 3 Complete: Build system validation
   - Sidecar downloaded: Bun binary (57MB) for macOS ARM64
-  - Sidecar configured: externalBin in tauri.conf.json
   - Rust sidecar command (start_bun_sidecar) implemented
+  - Tauri config (externalBin enabled)
   - Shell permissions (allow-execute, allow-spawn) added
   - Production build tested: Tauri binary 11MB (close to 10MB limit)
   - Hot reload tests created (test-reload.svelte, test-endpoint.ts)
   - Bundle size verified: Tauri app (11MB), Bun sidecar (57MB)
-  - ⚠️  Bundle Size Issue: Bun sidecar NOT bundled in production (to stay under 10MB limit)
+  - Bundle size issue: Bun sidecar NOT bundled in production (to stay under 10MB limit)
   - TODO: Document compression strategy or alternative bundling approach
+
+- Phase 4: Foundational Services - COMPLETE
+  - Storage Service (api/src/services/storage.ts)
+  - Validation Service (api/src/services/validation.ts)
+  - Payment Sources Service (api/src/services/payment-sources-service.ts)
+  - Bills Service (api/src/services/bills-service.ts)
+  - Incomes Service (api/src/services/incomes-service.ts)
+  - Categories Service (api/src/services/categories-service.ts)
+  - Months Service (api/src/services/months-service.ts)
+  - Backup Service (api/src/services/backup-service.ts)
+  - Undo Service (api/src/services/undo-service.ts)
+  - Leftover Service (api/src/services/leftover-service.ts)
+  - Auto-Save Service (api/src/services/auto-save.ts)
+
 <!-- MANUAL ADDITIONS END -->
