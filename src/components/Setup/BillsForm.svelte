@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { createBill } from '../../stores/bills';
+  import { createBill, updateBill, deleteBill } from '../../stores/bills';
   import { billsStore } from '../../stores/bills';
   import { paymentSourcesStore } from '../../stores/payment-sources';
+  import type { Bill } from '../../stores/bills';
 
   export let onContinue: () => void;
   export let onBack: () => void;
@@ -13,8 +14,10 @@
   let payment_source_id = '';
 
   let error = '';
+  let editingId: string | null = null;
+  let deleteConfirmId: string | null = null;
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!name.trim()) {
       error = 'Name is required';
       return;
@@ -24,16 +27,48 @@
       return;
     }
 
-    createBill({ name, amount, billing_period, payment_source_id })
-      .then(() => {
-        name = '';
-        amount = 0;
-        payment_source_id = '';
-        error = '';
-      })
-      .catch(e => {
-        error = e instanceof Error ? e.message : 'Failed to add bill';
-      });
+    try {
+      if (editingId) {
+        await updateBill(editingId, { name, amount, billing_period, payment_source_id });
+        editingId = null;
+      } else {
+        await createBill({ name, amount, billing_period, payment_source_id });
+      }
+      name = '';
+      amount = 0;
+      billing_period = 'monthly';
+      payment_source_id = '';
+      error = '';
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to save bill';
+    }
+  }
+
+  function startEdit(bill: Bill) {
+    editingId = bill.id;
+    name = bill.name;
+    amount = bill.amount;
+    billing_period = bill.billing_period;
+    payment_source_id = bill.payment_source_id;
+    error = '';
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    name = '';
+    amount = 0;
+    billing_period = 'monthly';
+    payment_source_id = '';
+    error = '';
+  }
+
+  async function confirmDelete(id: string) {
+    try {
+      await deleteBill(id);
+      deleteConfirmId = null;
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to delete bill';
+    }
   }
 
   function formatAmount(cents: number): string {
@@ -98,18 +133,27 @@
     </div>
 
     <div class="form-actions">
-      <button class="btn btn-secondary" on:click={onSkip}>
-        Skip for now
-      </button>
-      <button class="btn btn-secondary" on:click={onBack}>
-        Back
-      </button>
-      <button class="btn btn-secondary" on:click={onContinue}>
-        Continue
-      </button>
-      <button class="btn btn-primary" on:click={handleAdd}>
-        Add Bill
-      </button>
+      {#if editingId}
+        <button class="btn btn-secondary" on:click={cancelEdit}>
+          Cancel Edit
+        </button>
+        <button class="btn btn-primary" on:click={handleAdd}>
+          Save Changes
+        </button>
+      {:else}
+        <button class="btn btn-secondary" on:click={onSkip}>
+          Skip for now
+        </button>
+        <button class="btn btn-secondary" on:click={onBack}>
+          Back
+        </button>
+        <button class="btn btn-secondary" on:click={onContinue}>
+          Continue
+        </button>
+        <button class="btn btn-primary" on:click={handleAdd}>
+          Add Bill
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -118,13 +162,23 @@
       <h3>Bills Added</h3>
       <div class="items-list">
         {#each $billsStore.bills as bill}
-          <div class="item-card">
+          <div class="item-card" class:editing={editingId === bill.id}>
             <div class="item-header">
               <span class="item-name">{bill.name}</span>
-              <span class="item-period">{bill.billing_period}</span>
+              <span class="item-period">{bill.billing_period.replace('_', '-')}</span>
             </div>
             <div class="item-amount">
               {formatAmount(bill.amount)}
+            </div>
+            <div class="item-actions">
+              {#if deleteConfirmId === bill.id}
+                <span class="confirm-text">Delete?</span>
+                <button class="btn-small btn-danger" on:click={() => confirmDelete(bill.id)}>Yes</button>
+                <button class="btn-small btn-secondary" on:click={() => deleteConfirmId = null}>No</button>
+              {:else}
+                <button class="btn-small btn-secondary" on:click={() => startEdit(bill)}>Edit</button>
+                <button class="btn-small btn-danger" on:click={() => deleteConfirmId = bill.id}>Delete</button>
+              {/if}
             </div>
           </div>
         {/each}
@@ -264,5 +318,40 @@
     font-size: 18px;
     font-weight: bold;
     color: #ff6b6b;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+  }
+
+  .btn-small {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .btn-danger {
+    background: #ff4444;
+    color: #fff;
+  }
+
+  .btn-danger:hover {
+    background: #cc3333;
+  }
+
+  .confirm-text {
+    font-size: 13px;
+    color: #ff4444;
+    font-weight: 500;
+  }
+
+  .item-card.editing {
+    border: 2px solid #24c8db;
   }
 </style>

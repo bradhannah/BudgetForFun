@@ -27,6 +27,59 @@ const corsResponse = (body: string | object, status = 200) => {
   );
 };
 
+// Route matching function - handles patterns like /api/months/:month/summary
+function matchRoute(requestPath: string, routePath: string, hasPathParam: boolean): boolean {
+  if (!hasPathParam) {
+    return requestPath === routePath;
+  }
+  
+  // Split paths into segments
+  const requestSegments = requestPath.split('/').filter(Boolean);
+  const routeSegments = routePath.split('/').filter(Boolean);
+  
+  // Must have exactly one more segment in request than in route (the path param)
+  if (requestSegments.length !== routeSegments.length + 1) {
+    return false;
+  }
+  
+  // Case 1: Simple path param at end
+  // Route: /api/months -> matches /api/months/2025-01
+  // All route segments must match request segments in order
+  let allPrefixMatch = true;
+  for (let i = 0; i < routeSegments.length; i++) {
+    if (routeSegments[i] !== requestSegments[i]) {
+      allPrefixMatch = false;
+      break;
+    }
+  }
+  if (allPrefixMatch) {
+    return true;
+  }
+  
+  // Case 2: Path param in middle
+  // Route: /api/months/summary -> matches /api/months/2025-01/summary
+  // First N-1 route segments match first N-1 request segments, then param, then last matches
+  // Route segments: [api, months, summary] -> first 2 match, param, last matches
+  // Request segments: [api, months, 2025-01, summary]
+  
+  const lastRouteSegment = routeSegments[routeSegments.length - 1];
+  const lastRequestSegment = requestSegments[requestSegments.length - 1];
+  
+  // Last segments must match
+  if (lastRouteSegment !== lastRequestSegment) {
+    return false;
+  }
+  
+  // All segments before the last route segment must match corresponding request segments
+  for (let i = 0; i < routeSegments.length - 1; i++) {
+    if (routeSegments[i] !== requestSegments[i]) {
+      return false;
+    }
+  }
+  
+  return true;
+}
+
 // Start server
 const server = serve({
   port: PORT,
@@ -44,14 +97,13 @@ const server = serve({
       });
     }
 
-    // Find matching route
-    for (const route of routes) {
+    // Find matching route - sort by specificity (longer paths first)
+    const sortedRoutes = [...routes].sort((a, b) => b.path.length - a.path.length);
+    
+    for (const route of sortedRoutes) {
       const { path: routePath, definition } = route;
       
-      // Check if path matches (exact match or starts with for path params)
-      const pathMatches = definition.hasPathParam 
-        ? path.startsWith(routePath + '/') || path === routePath
-        : path === routePath;
+      const pathMatches = matchRoute(path, routePath, definition.hasPathParam || false);
       
       if (pathMatches && req.method === definition.method) {
         try {

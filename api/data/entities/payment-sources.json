@@ -1,11 +1,1 @@
-[
-  {
-    "name": "Maoim Chec",
-    "type": "bank_account",
-    "balance": 111,
-    "id": "cee05992-451f-4720-b8c9-d7b9f6745481",
-    "created_at": "2025-12-30T17:47:36.185Z",
-    "updated_at": "2025-12-30T17:47:36.185Z",
-    "is_active": true
-  }
-]
+[]

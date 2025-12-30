@@ -1,12 +1,1 @@
-[
-  {
-    "name": "rent",
-    "amount": 111,
-    "billing_period": "monthly",
-    "payment_source_id": "cee05992-451f-4720-b8c9-d7b9f6745481",
-    "id": "930e1fc5-0e41-4bad-8559",
-    "created_at": "2025-12-30T17:47:48.298Z",
-    "updated_at": "2025-12-30T17:47:48.298Z",
-    "is_active": true
-  }
-]
+[]

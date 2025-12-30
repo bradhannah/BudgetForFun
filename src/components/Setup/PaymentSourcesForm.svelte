@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { createPaymentSource } from '../../stores/payment-sources';
+  import { createPaymentSource, updatePaymentSource, deletePaymentSource } from '../../stores/payment-sources';
   import { paymentSources } from '../../stores/payment-sources';
+  import type { PaymentSource } from '../../stores/payment-sources';
 
   export let onContinue: () => void;
   export let onSkip: () => void;
@@ -10,6 +11,8 @@
   let balance = 0;
 
   let error = '';
+  let editingId: string | null = null;
+  let deleteConfirmId: string | null = null;
 
   async function handleAdd() {
     if (!name.trim()) {
@@ -18,12 +21,43 @@
     }
 
     try {
-      await createPaymentSource({ name, type, balance });
+      if (editingId) {
+        await updatePaymentSource(editingId, { name, type, balance });
+        editingId = null;
+      } else {
+        await createPaymentSource({ name, type, balance });
+      }
       name = '';
+      type = 'bank_account';
       balance = 0;
       error = '';
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to add payment source';
+      error = e instanceof Error ? e.message : 'Failed to save payment source';
+    }
+  }
+
+  function startEdit(ps: PaymentSource) {
+    editingId = ps.id;
+    name = ps.name;
+    type = ps.type;
+    balance = ps.balance;
+    error = '';
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    name = '';
+    type = 'bank_account';
+    balance = 0;
+    error = '';
+  }
+
+  async function confirmDelete(id: string) {
+    try {
+      await deletePaymentSource(id);
+      deleteConfirmId = null;
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Failed to delete payment source';
     }
   }
 
@@ -86,15 +120,24 @@
     </div>
 
     <div class="form-actions">
-      <button class="btn btn-secondary" on:click={handleSkip}>
-        Skip for now
-      </button>
-      <button class="btn btn-secondary" on:click={handleContinue}>
-        Continue
-      </button>
-      <button class="btn btn-primary" on:click={handleAdd}>
-        Add Payment Source
-      </button>
+      {#if editingId}
+        <button class="btn btn-secondary" on:click={cancelEdit}>
+          Cancel Edit
+        </button>
+        <button class="btn btn-primary" on:click={handleAdd}>
+          Save Changes
+        </button>
+      {:else}
+        <button class="btn btn-secondary" on:click={handleSkip}>
+          Skip for now
+        </button>
+        <button class="btn btn-secondary" on:click={handleContinue}>
+          Continue
+        </button>
+        <button class="btn btn-primary" on:click={handleAdd}>
+          Add Payment Source
+        </button>
+      {/if}
     </div>
   </div>
 
@@ -103,7 +146,7 @@
       <h3>Payment Sources Added</h3>
       <div class="items-list">
         {#each $paymentSources as ps}
-          <div class="item-card">
+          <div class="item-card" class:editing={editingId === ps.id}>
             <div class="item-header">
               <span class="item-name">{ps.name}</span>
               <span class="item-type">
@@ -112,6 +155,16 @@
             </div>
             <div class="item-balance">
               {formatBalance(ps.balance)}
+            </div>
+            <div class="item-actions">
+              {#if deleteConfirmId === ps.id}
+                <span class="confirm-text">Delete?</span>
+                <button class="btn-small btn-danger" on:click={() => confirmDelete(ps.id)}>Yes</button>
+                <button class="btn-small btn-secondary" on:click={() => deleteConfirmId = null}>No</button>
+              {:else}
+                <button class="btn-small btn-secondary" on:click={() => startEdit(ps)}>Edit</button>
+                <button class="btn-small btn-danger" on:click={() => deleteConfirmId = ps.id}>Delete</button>
+              {/if}
             </div>
           </div>
         {/each}
@@ -251,5 +304,40 @@
     font-size: 18px;
     font-weight: bold;
     color: #24c8db;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: center;
+  }
+
+  .btn-small {
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .btn-danger {
+    background: #ff4444;
+    color: #fff;
+  }
+
+  .btn-danger:hover {
+    background: #cc3333;
+  }
+
+  .confirm-text {
+    font-size: 13px;
+    color: #ff4444;
+    font-weight: 500;
+  }
+
+  .item-card.editing {
+    border: 2px solid #24c8db;
   }
 </style>

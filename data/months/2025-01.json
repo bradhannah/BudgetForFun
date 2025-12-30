@@ -1,0 +1,57 @@
+{
+  "month": "2025-01",
+  "bill_instances": [
+    {
+      "id": "b94007e1-e73e-4818-8e38-1b5dbee156e6",
+      "bill_id": "9867be3e-d998-429d-9f36-1d884f832bb6",
+      "month": "2025-01",
+      "amount": 150000,
+      "is_default": true,
+      "created_at": "2025-12-30T18:00:10.427Z",
+      "updated_at": "2025-12-30T18:00:10.427Z"
+    },
+    {
+      "id": "4e971eff-0517-4382-90e4-689c0e2ec10e",
+      "bill_id": "4a2c1094-578b-47b0-a2e9",
+      "month": "2025-01",
+      "amount": 100000,
+      "is_default": true,
+      "created_at": "2025-12-30T18:00:10.427Z",
+      "updated_at": "2025-12-30T18:00:10.427Z"
+    },
+    {
+      "id": "db3b5d14-7f02-4d78-8bae-e38a37cfdc18",
+      "bill_id": "4961fa75-3447-47a7-ad93",
+      "month": "2025-01",
+      "amount": 10000,
+      "is_default": true,
+      "created_at": "2025-12-30T18:00:10.427Z",
+      "updated_at": "2025-12-30T18:00:10.427Z"
+    }
+  ],
+  "income_instances": [
+    {
+      "id": "ff3a9b7c-0034-434c-894e-902f1a0cfa39",
+      "income_id": "4b3b2eef-2978-4322-bc1c-40c0",
+      "month": "2025-01",
+      "amount": 50000,
+      "is_default": true,
+      "created_at": "2025-12-30T18:00:10.427Z",
+      "updated_at": "2025-12-30T18:00:10.427Z"
+    },
+    {
+      "id": "9155a7d6-3251-40da-b584-c2574a307c07",
+      "income_id": "ddec59d7-8484-4c93-afc1-41c9",
+      "month": "2025-01",
+      "amount": 500000,
+      "is_default": true,
+      "created_at": "2025-12-30T18:00:10.427Z",
+      "updated_at": "2025-12-30T18:00:10.427Z"
+    }
+  ],
+  "variable_expenses": [],
+  "free_flowing_expenses": [],
+  "bank_balances": {},
+  "created_at": "2025-12-30T18:00:10.427Z",
+  "updated_at": "2025-12-30T18:00:10.427Z"
+}

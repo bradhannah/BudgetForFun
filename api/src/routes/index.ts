@@ -26,6 +26,13 @@ import {
   createIncomesHandlerDELETE
 } from './handlers/incomes.handlers';
 
+import {
+  createMonthsHandlerGET,
+  createMonthsHandlerGenerate,
+  createMonthsHandlerUpdateBalances,
+  createMonthsHandlerSummary
+} from './handlers/months.handlers';
+
 // Route definition type
 interface RouteDefinition {
   method: string;
@@ -57,4 +64,10 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/incomes', definition: { method: 'POST', handler: createIncomesHandlerPOST() } },
   { path: '/api/incomes', definition: { method: 'PUT', handler: createIncomesHandlerPUT(), hasPathParam: true } },
   { path: '/api/incomes', definition: { method: 'DELETE', handler: createIncomesHandlerDELETE(), hasPathParam: true } },
+  
+  // Months - routes with sub-paths (generate, bank-balances, summary) first for proper matching
+  { path: '/api/months/generate', definition: { method: 'POST', handler: createMonthsHandlerGenerate(), hasPathParam: true } },
+  { path: '/api/months/bank-balances', definition: { method: 'PUT', handler: createMonthsHandlerUpdateBalances(), hasPathParam: true } },
+  { path: '/api/months/summary', definition: { method: 'GET', handler: createMonthsHandlerSummary(), hasPathParam: true } },
+  { path: '/api/months', definition: { method: 'GET', handler: createMonthsHandlerGET(), hasPathParam: true } },
 ];
