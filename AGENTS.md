@@ -15,6 +15,7 @@ tests/
 
 ## OOF
 - Before you tell me something works - I expect you to test it using Makefile test or curl if a web page. 
+- I expect you to use curl to test your backends before you have me test
 
 ## Commands
 

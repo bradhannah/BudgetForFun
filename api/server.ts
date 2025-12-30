@@ -8,15 +8,42 @@ import { routes } from './src/routes';
 
 const PORT = 3000;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+const corsResponse = (body: string | object, status = 200) => {
+  return new Response(
+    typeof body === 'string' ? body : JSON.stringify(body),
+    {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      },
+    }
+  );
+};
+
 // Start server
 const server = serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
-    
+
     console.log(`Request: ${req.method} ${path}`);
-    
+
+    // Handle OPTIONS preflight requests
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: CORS_HEADERS,
+      });
+    }
+
     // Find matching route
     for (const route of routes) {
       const { path: routePath, definition } = route;
@@ -29,29 +56,34 @@ const server = serve({
       if (pathMatches && req.method === definition.method) {
         try {
           console.log(` -> Matched route: ${routePath} [${definition.method}]`);
-          return await definition.handler(req);
+          const response = await definition.handler(req);
+
+          // Add CORS headers to existing Response
+          const headers = new Headers(response.headers);
+          Object.entries(CORS_HEADERS).forEach(([key, value]) => {
+            headers.set(key, value);
+          });
+
+          return new Response(response.body, {
+            status: response.status,
+            headers,
+          });
         } catch (error) {
           console.error('Server error:', error);
-          return new Response(
-            JSON.stringify({ 
-              error: error instanceof Error ? error.message : 'Unknown error' 
-            }),
-            { 
-              headers: { 'Content-Type': 'application/json' },
-              status: error instanceof Error && 'status' in error 
-                ? (error as any).status 
-                : 500
-            }
+          return corsResponse(
+            {
+              error: error instanceof Error ? error.message : 'Unknown error',
+            },
+            error instanceof Error && 'status' in error
+              ? (error as any).status
+              : 500
           );
         }
       }
     }
     
     // 404 for unknown routes
-    return new Response(JSON.stringify({ error: 'Not Found' }), {
-      headers: { 'Content-Type': 'application/json' },
-      status: 404
-    });
+    return corsResponse({ error: 'Not Found' }, 404);
   }
 });
 

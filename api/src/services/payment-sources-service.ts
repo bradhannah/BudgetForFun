@@ -103,7 +103,7 @@ export class PaymentSourcesServiceImpl implements PaymentSourcesService {
     }
   }
   
-  public async validate(data: Partial<PaymentSource>): ValidationResult {
+  public validate(data: Partial<PaymentSource>): ValidationResult {
     const errors: string[] = [];
     
     if (!data.name?.trim()) {

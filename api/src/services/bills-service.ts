@@ -58,9 +58,10 @@ export class BillsServiceImpl implements BillsService {
       const bills = await this.getAll();
       
       const now = new Date().toISOString();
+      
       const newBill: Bill = {
         ...data,
-        id: crypto.randomUUID(),
+        id: generateId(),
         created_at: now,
         updated_at: now,
         is_active: true
@@ -115,4 +116,12 @@ export class BillsServiceImpl implements BillsService {
   public validate(data: Partial<Bill>): ValidationResult {
     return this.validation.validateBill(data);
   }
+}
+
+function generateId(): string {
+  return `xxxxxxxx-xxxx-4xxx-yxxx`.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }

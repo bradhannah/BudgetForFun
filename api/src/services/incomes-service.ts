@@ -19,6 +19,14 @@ export interface IncomesService {
   validate(data: Partial<Income>): ValidationResult;
 }
 
+function generateId(): string {
+  return `xxxxxxxx-xxxx-4xxx-yxxx-4xxx`.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export class IncomesServiceImpl implements IncomesService {
   private storage: StorageService;
   private validation: ValidationService;
@@ -58,9 +66,10 @@ export class IncomesServiceImpl implements IncomesService {
       const incomes = await this.getAll();
       
       const now = new Date().toISOString();
+      const newId = generateId();
       const newIncome: Income = {
         ...data,
-        id: crypto.randomUUID(),
+        id: newId,
         created_at: now,
         updated_at: now,
         is_active: true

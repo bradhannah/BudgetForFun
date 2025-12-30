@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "name": "Salary",
+    "amount": 50000,
+    "billing_period": "monthly",
+    "payment_source_id": "0fece128-d84a-40e9-ba1e-a0f922bf3ed3",
+    "id": "4b3b2eef-2978-4322-bc1c-40c0",
+    "created_at": "2025-12-30T17:25:12.498Z",
+    "updated_at": "2025-12-30T17:25:12.498Z",
+    "is_active": true
+  }
+]

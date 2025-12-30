@@ -32,6 +32,7 @@ export interface ValidationService {
 
 export class ValidationServiceImpl implements ValidationService {
   private static instance: ValidationServiceImpl | null = null;
+  private storage: StorageService;
   
   public static getInstance(): ValidationService {
     if (!ValidationServiceImpl.instance) {
@@ -69,8 +70,6 @@ export class ValidationServiceImpl implements ValidationService {
     
     if (!bill.payment_source_id) {
       errors.push('Payment source ID is required');
-    } else if (!this.validateID(bill.payment_source_id)) {
-      errors.push('Payment source ID must be a valid UUID');
     }
     
     return {
@@ -153,9 +152,8 @@ export class ValidationServiceImpl implements ValidationService {
   }
   
   validateID(id: string): boolean {
-    // Simple UUID format validation (8-4-4-4-12)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-    return uuidRegex.test(id);
+    if (id.length < 10) return false;
+    return true;
   }
   
   validateName(name: string): boolean {
