@@ -8,6 +8,13 @@ import { routes } from './src/routes';
 
 const PORT = 3000;
 
+// Register routes (with /api/ prefix)
+for (const [path, route] of routes.entries()) {
+  if (path === '/api/health' || path === '/health') {
+    console.log(`Registered route: ${path} -> HealthController.getHealth()`);
+  }
+}
+
 // Start server
 const server = serve({
   port: PORT,
@@ -19,8 +26,9 @@ const server = serve({
     
     // Find matching route (support both /health and /api/health)
     for (const [routePath, route] of routes.entries()) {
-      if ((path === `/api/${routePath}` || path === routePath) && req.method === route.method) {
+      if ((path === routePath || path === `/api/${routePath.replace('/api/', '')}`) && req.method === route.method) {
         try {
+          console.log(`  -> Matched route: ${routePath}`);
           return await route.handler(req);
         } catch (error) {
           console.error('Server error:', error);
@@ -49,3 +57,4 @@ const server = serve({
 
 console.log(`Bun backend server running on http://localhost:${PORT}`);
 console.log(`Health check: http://localhost:${PORT}/health`);
+console.log(`Test endpoint: http://localhost:${PORT}/api/test`);

@@ -16,12 +16,20 @@ import {
   PaymentSourcesController
 } from './controllers';
 
+import {
+  HealthController,
+  BillsController,
+  IncomesController,
+  PaymentSourcesController
+} from './controllers';
+
 /**
  * Route registration map (with /api/ prefix)
  */
 export const routes = new Map([
   ['/api/health', { method: 'GET', handler: createHealthHandler() }],
   ['/health', { method: 'GET', handler: createHealthHandler() }],
+  ['/api/test', { method: 'GET', handler: createTestHandler() }],
   ['/api/bills', { method: 'GET', handler: () => notImplemented('Bills') }],
   ['/api/bills', { method: 'POST', handler: () => notImplemented('Bills') }],
   ['/api/incomes', { method: 'GET', handler: () => notImplemented('Incomes') }],
@@ -35,6 +43,30 @@ function createHealthHandler() {
   return async () => {
     const result = await healthController.getHealth();
     return new Response(JSON.stringify(result), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200
+    });
+  };
+}
+
+function createHealthHandler() {
+  const healthController = new HealthController();
+  return async () => {
+    const result = await healthController.getHealth();
+    return new Response(JSON.stringify(result), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 200
+    });
+  };
+}
+
+function createTestHandler() {
+  return async () => {
+    return new Response(JSON.stringify({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      message: 'Bun backend hot reload working'
+    }), {
       headers: { 'Content-Type': 'application/json' },
       status: 200
     });
