@@ -112,6 +112,8 @@ cleanup() {
 main() {
   log_step "Starting Smoke Test"
   
+  make kill-dev
+  
   mkdir -p "$SCRIPT_DIR/logs"
   mkdir -p "$SCRIPT_DIR/pids"
   

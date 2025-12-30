@@ -1,7 +1,7 @@
 # BudgetForFun Makefile
 # Makefile-based build automation for Tauri + Bun + Svelte development workflow
 
-.PHONY: help dev build clean test lint format types smoke-test install-prereqs install-dev install-all
+.PHONY: help dev build clean test lint format types smoke-test install-prereqs install-dev install-all kill-dev
 
 # Default target
 help: ## Show this help message
@@ -27,9 +27,22 @@ help: ## Show this help message
 	@echo "  make test-e2e      Run E2E tests (Playwright)"
 	@echo "  make smoke-test Validate build system integration"
 	@echo ""
+	@echo "Utility Targets:"
+	@echo "  make kill-dev   Terminate stray development processes"
+	@echo ""
 	@echo "Quality Targets:"
 	@echo "  make lint      Run ESLint checks"
 	@echo "  make format    Format all files with Prettier"
+
+# Utility
+kill-dev: ## Terminate stray development processes (Bun, Vite, Node)
+	@echo "Terminating stray development processes..."
+	@lsof -ti:1420 | xargs kill -9 2>/dev/null || echo "No Vite process on port 1420"
+	@lsof -ti:3000 | xargs kill -9 2>/dev/null || echo "No Bun process on port 3000"
+	@pkill -f "vite dev" 2>/dev/null || echo "No Vite processes"
+	@pkill -f "bun.*server.ts" 2>/dev/null || echo "No Bun server processes"
+	@pkill -f "tauri dev" 2>/dev/null || echo "No Tauri processes"
+	@echo "✓ All stray processes terminated"
 
 # Installation
 install-prereqs: ## Check and install all prerequisites (Bun, Rust, Node.js, TypeScript)

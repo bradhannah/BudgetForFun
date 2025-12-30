@@ -13,6 +13,9 @@ src/
 tests/
 ```
 
+## OOF
+- Before you tell me something works - I expect you to test it using Makefile test or curl if a web page. 
+
 ## Commands
 
 # Add commands for 
@@ -46,6 +49,21 @@ tests/
   - Bundle size verified: Tauri app (11MB), Bun sidecar (57MB)
   - Bundle size issue: Bun sidecar NOT bundled in production (to stay under 10MB limit)
   - TODO: Document compression strategy or alternative bundling approach
+
+ - Phase 3.5: UI Component Prototyping - COMPLETE (2025-12-30)
+   - Prototyping testbed page (src/routes/prototype.svelte) - Tabbed interface for testing variations
+   - Mock data service (src/prototype-data.ts) - Sample bills, incomes, payment sources
+   - All component variations created (8 components, 20+ variations tested)
+   - Decisions documented in specs/001-monthly-budget/prototyping-decisions.md
+   - Selected variations:
+     - Inputs: Native input with $ prefix
+     - Date Pickers: Native month input
+     - Dropdowns: Native select
+     - Modals: Right-side drawer
+     - Lists: Card-based layout
+     - Navigation: Sidebar navigation
+     - Colors: Dark mode default (#24c8db primary)
+     - Forms: Vertical form layout
 
  - Phase 4: Foundational Services - COMPLETE (2025-12-30)
    - Storage Service (api/src/services/storage.ts) - File I/O with Bun promises API
