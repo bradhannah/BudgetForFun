@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { IncomeInstance } from '../../stores/months';
+  import { success, error as showError } from '../../stores/toast';
   
   export let incomes: IncomeInstance[] = [];
   export let month: string;
@@ -52,7 +53,7 @@
     error = '';
     
     try {
-      const response = await fetch(`/api/months/${month}/incomes/${id}`, {
+      const response = await fetch(`http://localhost:3000/api/months/${month}/incomes/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: amountCents })
@@ -65,8 +66,10 @@
       
       cancelEdit();
       dispatch('refresh');
+      success('Income amount updated');
     } catch (err) {
       error = err instanceof Error ? err.message : 'Unknown error';
+      showError(error);
     } finally {
       saving = false;
     }
@@ -77,7 +80,7 @@
     error = '';
     
     try {
-      const response = await fetch(`/api/months/${month}/incomes/${id}/reset`, {
+      const response = await fetch(`http://localhost:3000/api/months/${month}/incomes/${id}/reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -88,8 +91,10 @@
       }
       
       dispatch('refresh');
+      success('Income reset to default');
     } catch (err) {
       error = err instanceof Error ? err.message : 'Unknown error';
+      showError(error);
     } finally {
       saving = false;
     }

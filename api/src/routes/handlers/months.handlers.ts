@@ -306,3 +306,30 @@ export function createMonthsHandlerSummary() {
     }
   };
 }
+
+// GET /api/months - List all available months with summaries
+export function createMonthsHandlerList() {
+  return async (_request: Request) => {
+    try {
+      const months = await monthsService.getAllMonths();
+      
+      return new Response(JSON.stringify({
+        months,
+        count: months.length
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (error) {
+      console.error('[MonthsHandler] List failed:', error);
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to list months'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  };
+}

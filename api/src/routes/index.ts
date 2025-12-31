@@ -28,6 +28,7 @@ import {
 
 import {
   createMonthsHandlerGET,
+  createMonthsHandlerList,
   createMonthsHandlerGenerate,
   createMonthsHandlerSync,
   createMonthsHandlerUpdateBalances,
@@ -97,6 +98,9 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/incomes', definition: { method: 'POST', handler: createIncomesHandlerPOST() } },
   { path: '/api/incomes', definition: { method: 'PUT', handler: createIncomesHandlerPUT(), hasPathParam: true } },
   { path: '/api/incomes', definition: { method: 'DELETE', handler: createIncomesHandlerDELETE(), hasPathParam: true } },
+  
+  // Months list - must come before specific month routes
+  { path: '/api/months', definition: { method: 'GET', handler: createMonthsHandlerList() } },
   
   // Months - routes with sub-paths (generate, bank-balances, summary) first for proper matching
   { path: '/api/months/generate', definition: { method: 'POST', handler: createMonthsHandlerGenerate(), hasPathParam: true } },

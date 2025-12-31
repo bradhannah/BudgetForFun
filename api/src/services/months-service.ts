@@ -17,8 +17,20 @@ import type {
 } from '../types';
 import { getMonthlyInstanceCount, calculateActualMonthlyAmount } from '../utils/billing-period';
 
+// Summary for a single month in the list
+export interface MonthSummary {
+  month: string;
+  created_at: string;
+  updated_at: string;
+  total_income: number;
+  total_bills: number;
+  total_expenses: number;
+  leftover: number;
+}
+
 export interface MonthsService {
   getMonthlyData(month: string): Promise<MonthlyData | null>;
+  getAllMonths(): Promise<MonthSummary[]>;
   generateMonthlyData(month: string): Promise<MonthlyData>;
   syncMonthlyData(month: string): Promise<MonthlyData>;
   updateBankBalances(month: string, balances: Record<string, number>): Promise<MonthlyData>;
@@ -54,6 +66,53 @@ export class MonthsServiceImpl implements MonthsService {
     } catch (error) {
       console.error('[MonthsService] Failed to load monthly data:', error);
       return null;
+    }
+  }
+  
+  public async getAllMonths(): Promise<MonthSummary[]> {
+    try {
+      const monthsDir = 'data/months';
+      const files = await Bun.file(monthsDir).exists() ? [] : [];
+      
+      // Read the months directory
+      const dir = await import('node:fs/promises');
+      const entries = await dir.readdir(monthsDir);
+      
+      const summaries: MonthSummary[] = [];
+      
+      for (const entry of entries) {
+        // Skip non-JSON files and .gitkeep
+        if (!entry.endsWith('.json') || entry === '.gitkeep') continue;
+        
+        const month = entry.replace('.json', '');
+        const data = await this.getMonthlyData(month);
+        
+        if (data) {
+          // Calculate totals
+          const totalIncome = data.income_instances.reduce((sum, i) => sum + i.amount, 0);
+          const totalBills = data.bill_instances.reduce((sum, b) => sum + b.amount, 0);
+          const totalExpenses = data.variable_expenses.reduce((sum, e) => sum + e.amount, 0);
+          const leftover = totalIncome - totalBills - totalExpenses;
+          
+          summaries.push({
+            month: data.month,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+            total_income: totalIncome,
+            total_bills: totalBills,
+            total_expenses: totalExpenses,
+            leftover
+          });
+        }
+      }
+      
+      // Sort by month descending (newest first)
+      summaries.sort((a, b) => b.month.localeCompare(a.month));
+      
+      return summaries;
+    } catch (error) {
+      console.error('[MonthsService] Failed to get all months:', error);
+      return [];
     }
   }
   

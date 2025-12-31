@@ -101,6 +101,15 @@
       "is_default": true,
       "created_at": "2025-12-31T15:29:16.561Z",
       "updated_at": "2025-12-31T15:29:16.561Z"
+    },
+    {
+      "id": "ecdcd0d7-93bf-4149-95d3-702f668c8e73",
+      "income_id": "cc46a8f9-9e2b-46d1-a7ff-438a",
+      "month": "2025-12",
+      "amount": 11111,
+      "is_default": true,
+      "created_at": "2025-12-31T16:13:49.286Z",
+      "updated_at": "2025-12-31T16:13:49.286Z"
     }
   ],
   "variable_expenses": [
@@ -126,5 +135,5 @@
   "free_flowing_expenses": [],
   "bank_balances": {},
   "created_at": "2025-12-30T18:08:31.732Z",
-  "updated_at": "2025-12-31T15:29:16.561Z"
+  "updated_at": "2025-12-31T16:13:49.286Z"
 }

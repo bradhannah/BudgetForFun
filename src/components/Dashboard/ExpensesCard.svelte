@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { VariableExpense } from '../../stores/months';
   import type { PaymentSource } from '../../stores/payment-sources';
+  import { success, error as showError } from '../../stores/toast';
   
   export let expenses: VariableExpense[] = [];
   export let month: string;
@@ -98,7 +99,7 @@
       
       if (editingId) {
         // Update existing
-        const response = await fetch(`/api/months/${month}/expenses/${editingId}`, {
+        const response = await fetch(`http://localhost:3000/api/months/${month}/expenses/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -108,9 +109,10 @@
           const data = await response.json();
           throw new Error(data.error || 'Failed to update expense');
         }
+        success('Expense updated');
       } else {
         // Create new
-        const response = await fetch(`/api/months/${month}/expenses`, {
+        const response = await fetch(`http://localhost:3000/api/months/${month}/expenses`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -120,12 +122,14 @@
           const data = await response.json();
           throw new Error(data.error || 'Failed to create expense');
         }
+        success('Expense added');
       }
       
       cancelForm();
       dispatch('refresh');
     } catch (err) {
       error = err instanceof Error ? err.message : 'Unknown error';
+      showError(error);
     } finally {
       saving = false;
     }
@@ -133,7 +137,7 @@
   
   async function deleteExpense(id: string) {
     try {
-      const response = await fetch(`/api/months/${month}/expenses/${id}`, {
+      const response = await fetch(`http://localhost:3000/api/months/${month}/expenses/${id}`, {
         method: 'DELETE'
       });
       
@@ -144,8 +148,10 @@
       
       confirmDeleteId = null;
       dispatch('refresh');
+      success('Expense deleted');
     } catch (err) {
       error = err instanceof Error ? err.message : 'Unknown error';
+      showError(error);
     }
   }
 </script>

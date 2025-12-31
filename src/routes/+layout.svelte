@@ -1,5 +1,6 @@
 <script lang="ts">
   import Navigation from '../components/Navigation.svelte';
+  import ToastContainer from '../components/shared/ToastContainer.svelte';
 </script>
 
 <div class="app-layout">
@@ -8,6 +9,8 @@
     <slot />
   </main>
 </div>
+
+<ToastContainer />
 
 <style>
   :global(:root) {
