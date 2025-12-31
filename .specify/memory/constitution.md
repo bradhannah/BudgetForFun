@@ -148,6 +148,13 @@ Code readability standards:
 - No clever destructuring or advanced JS patterns
 - Readable JSDoc comments on component props
 
+### XXVII. Backend Testing
+Before you tell me something works - I expect you to test it using Makefile test or curl if a web page. I expect you to use curl to test your backends before you have me test
+
+### XXVIII. Developers time is valuable
+Do not waste the developer time by not testing your backends before you have me test them. Use curl to test your backends before you have me test them. The developer only wants to test features and functions that you are confident work. If you are not confident, then you may ask them questions for clarity or direction if necessary, but they are not your guinei pig.
+
+
 
 ## Quality Standards
 

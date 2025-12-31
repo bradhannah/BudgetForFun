@@ -48,6 +48,13 @@ import {
   createIncomeInstanceHandlerReset
 } from './handlers/instances.handlers';
 
+import {
+  createCategoriesHandlerGET,
+  createCategoriesHandlerPOST,
+  createCategoriesHandlerPUT,
+  createCategoriesHandlerDELETE
+} from './handlers/categories.handlers';
+
 // Route definition type
 interface RouteDefinition {
   method: string;
@@ -61,6 +68,12 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/health', definition: { method: 'GET', handler: createHealthHandler() } },
   { path: '/health', definition: { method: 'GET', handler: createHealthHandler() } },
   { path: '/api/test', definition: { method: 'GET', handler: createTestHandler() } },
+  
+  // Categories
+  { path: '/api/categories', definition: { method: 'GET', handler: createCategoriesHandlerGET() } },
+  { path: '/api/categories', definition: { method: 'POST', handler: createCategoriesHandlerPOST() } },
+  { path: '/api/categories', definition: { method: 'PUT', handler: createCategoriesHandlerPUT(), hasPathParam: true } },
+  { path: '/api/categories', definition: { method: 'DELETE', handler: createCategoriesHandlerDELETE(), hasPathParam: true } },
   
   // Payment Sources
   { path: '/api/payment-sources', definition: { method: 'GET', handler: createPaymentSourcesHandlerGET() } },
