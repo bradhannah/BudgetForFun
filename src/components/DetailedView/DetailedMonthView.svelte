@@ -6,7 +6,7 @@
   import SummarySidebar from './SummarySidebar.svelte';
   import VariableExpensesSection from './VariableExpensesSection.svelte';
   import { success, error as showError } from '../../stores/toast';
-  import { wideMode } from '../../stores/ui';
+  import { widthMode } from '../../stores/ui';
   import { paymentSources, loadPaymentSources } from '../../stores/payment-sources';
   import { variableExpenses, monthsStore } from '../../stores/months';
   import { apiUrl } from '$lib/api/client';
@@ -118,9 +118,9 @@
   // Calculate variable expenses total for sidebar
   $: variableExpensesTotal = $variableExpenses.reduce((sum, e) => sum + e.amount, 0);
   
-  // Toggle width mode
-  function toggleWideMode() {
-    wideMode.toggle();
+  // Toggle width mode (cycles through small -> medium -> wide)
+  function toggleWidthMode() {
+    widthMode.cycle();
   }
   
   // Refresh all data
@@ -130,8 +130,13 @@
   }
 </script>
 
-<div class="detailed-view" class:compact={compactMode} class:wide={$wideMode}>
-  <header class="view-header">
+<div class="detailed-view" class:compact={compactMode}>
+  <div class="content-wrapper"
+    class:small={$widthMode === 'small'} 
+    class:medium={$widthMode === 'medium'}
+    class:wide={$widthMode === 'wide'}
+  >
+    <header class="view-header">
     <div class="header-content">
       <a href="/" class="back-link">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -156,33 +161,32 @@
     
     {#if $detailedMonthData}
       <div class="header-summary">
-        <!-- Width toggle -->
+        <!-- Width toggle (cycles: small -> medium -> wide) -->
         <button 
           class="width-toggle" 
-          on:click={toggleWideMode}
-          title={$wideMode ? 'Normal width' : 'Wide mode'}
+          on:click={toggleWidthMode}
+          title={$widthMode === 'small' ? 'Small width (click for medium)' : $widthMode === 'medium' ? 'Medium width (click for wide)' : 'Wide (click for small)'}
         >
-          {#if $wideMode}
+          {#if $widthMode === 'small'}
+            <!-- Small icon: narrow box -->
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M9 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M15 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M12 9L9 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M12 9L15 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="7" y="4" width="10" height="16" rx="1" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          {:else if $widthMode === 'medium'}
+            <!-- Medium icon: medium box -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="4" y="4" width="16" height="16" rx="1" stroke="currentColor" stroke-width="2"/>
             </svg>
           {:else}
+            <!-- Wide icon: full width with arrows -->
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M4 4H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M4 20H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M16 4H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M16 20H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               <path d="M4 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               <path d="M20 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              <path d="M9 12L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M9 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M15 12L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M15 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 12H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M8 12L11 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 12L11 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M16 12L13 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M16 12L13 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           {/if}
         </button>
@@ -286,18 +290,40 @@
       </div>
     </div>
   {/if}
+  </div>
 </div>
 
 <style>
   .detailed-view {
-    max-width: 1400px;
-    margin: 0 auto;
     padding: 20px;
-    transition: max-width 0.3s ease;
   }
   
-  .detailed-view.wide {
+  .content-wrapper {
+    /* Container query context for responsive internal layout */
+    container-type: inline-size;
+    container-name: content;
+    /* Centering: account for 220px nav, center in remaining space */
+    max-width: 1800px;
+    width: 100%;
+    margin-left: max(0px, calc(50vw - 150px - 900px));
+    margin-right: auto;
+    transition: max-width 0.3s ease, margin 0.3s ease;
+  }
+  
+  .content-wrapper.small {
+    max-width: 1000px;
+    margin-left: max(0px, calc(50vw - 350px - 500px));
+  }
+  
+  .content-wrapper.medium {
+    max-width: 1800px;
+    margin-left: max(0px, calc(50vw - 150px - 900px));
+  }
+  
+  .content-wrapper.wide {
     max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
   
   .view-header {
@@ -515,7 +541,8 @@
     }
   }
   
-  @media (min-width: 1200px) {
+  /* Container query: 2-column layout when content-wrapper is wide enough */
+  @container content (min-width: 1100px) {
     .sections-container {
       grid-template-columns: 1fr 1fr;
     }

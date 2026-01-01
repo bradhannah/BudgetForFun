@@ -61,41 +61,55 @@ export function goToCurrentMonth() {
 }
 
 // Wide mode store with localStorage persistence
-function getStoredWideMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const stored = localStorage.getItem('budgetforfun-wide-mode');
-  return stored === 'true';
+// Supports 3 levels: small (900px), medium (1200px), wide (100%)
+export type WidthMode = 'small' | 'medium' | 'wide';
+
+function getStoredWidthMode(): WidthMode {
+  if (typeof window === 'undefined') return 'medium';
+  const stored = localStorage.getItem('budgetforfun-width-mode');
+  // Handle legacy values
+  if (stored === 'true' || stored === 'wide') return 'wide';
+  if (stored === 'false') return 'medium';
+  if (stored === 'small' || stored === 'medium' || stored === 'wide') return stored;
+  return 'medium';
 }
 
-function createWideModeStore() {
-  const { subscribe, set, update } = writable<boolean>(false);
+function createWidthModeStore() {
+  const { subscribe, set, update } = writable<WidthMode>('medium');
   
   // Initialize from localStorage on client side
   if (typeof window !== 'undefined') {
-    set(getStoredWideMode());
+    set(getStoredWidthMode());
   }
   
   return {
     subscribe,
-    toggle: () => {
+    // Cycle through modes: small -> medium -> wide -> small
+    cycle: () => {
       update(current => {
-        const newValue = !current;
+        const nextMode: WidthMode = current === 'small' ? 'medium' : current === 'medium' ? 'wide' : 'small';
         if (typeof window !== 'undefined') {
-          localStorage.setItem('budgetforfun-wide-mode', String(newValue));
+          localStorage.setItem('budgetforfun-width-mode', nextMode);
         }
-        return newValue;
+        return nextMode;
       });
     },
-    set: (value: boolean) => {
+    set: (value: WidthMode) => {
       set(value);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('budgetforfun-wide-mode', String(value));
+        localStorage.setItem('budgetforfun-width-mode', value);
       }
     }
   };
 }
 
-export const wideMode = createWideModeStore();
+export const widthMode = createWidthModeStore();
+
+// Legacy alias for backwards compatibility (if needed)
+export const wideMode = {
+  subscribe: widthMode.subscribe,
+  toggle: widthMode.cycle
+};
 
 // UI state store for sidebar, drawers, etc.
 interface UIState {
