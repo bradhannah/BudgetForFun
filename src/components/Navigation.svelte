@@ -11,6 +11,8 @@
   
   // Check if we're on the details page (any month)
   $: isDetailsActive = currentPath.startsWith('/month/');
+  // Check if we're on the manage page
+  $: isManageActive = currentPath.startsWith('/manage');
   
   let backupLoading = false;
   let fileInput: HTMLInputElement | null = null;
@@ -180,6 +182,24 @@
           <path d="M9 16H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         <span>Details</span>
+      </a>
+    </li>
+    <li>
+      <a 
+        href="/manage" 
+        class="nav-item"
+        class:active={isManageActive}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+          <path d="M16 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M8 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M3 10H21" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 14H10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M14 14H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M8 18H10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Manage Months</span>
       </a>
     </li>
   </ul>

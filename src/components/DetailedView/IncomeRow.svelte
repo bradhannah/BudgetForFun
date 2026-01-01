@@ -10,6 +10,8 @@
   export let income: IncomeInstanceDetailed;
   export let month: string = '';
   export let compactMode: boolean = false;
+  export let readOnly: boolean = false;
+  export let onTogglePaid: ((id: string) => void) | null = null;
   
   const dispatch = createEventDispatcher();
   
@@ -112,6 +114,7 @@
   }
   
   function startEditingExpected() {
+    if (readOnly) return;
     if (isClosed) return;
     expectedEditValue = (income.expected_amount / 100).toFixed(2);
     isEditingExpected = true;
@@ -279,15 +282,15 @@
       <!-- Action buttons -->
       <div class="action-buttons">
         {#if isClosed}
-          <button class="action-btn reopen" on:click={handleReopen} disabled={saving}>
+          <button class="action-btn reopen" on:click={handleReopen} disabled={saving || readOnly}>
             Reopen
           </button>
         {:else if hasTransactions}
-          <button class="action-btn close" on:click={handleClose} disabled={saving}>
+          <button class="action-btn close" on:click={handleClose} disabled={saving || readOnly}>
             Close
           </button>
         {:else if month}
-          <button class="action-btn receive-full" on:click={handleReceiveFull} disabled={saving}>
+          <button class="action-btn receive-full" on:click={handleReceiveFull} disabled={saving || readOnly}>
             Receive Full
           </button>
         {/if}

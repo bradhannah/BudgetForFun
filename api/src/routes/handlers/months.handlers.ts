@@ -333,3 +333,202 @@ export function createMonthsHandlerList() {
     }
   };
 }
+
+// GET /api/months/manage - List months for management (includes current + next month placeholders)
+export function createMonthsHandlerManage() {
+  return async (_request: Request) => {
+    try {
+      const months = await monthsService.getMonthsForManagement();
+      
+      return new Response(JSON.stringify({
+        months,
+        count: months.length
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (error) {
+      console.error('[MonthsHandler] Manage failed:', error);
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to list months for management'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  };
+}
+
+// GET /api/months/:month/exists - Check if a month exists
+export function createMonthsHandlerExists() {
+  return async (request: Request) => {
+    try {
+      const url = new URL(request.url);
+      const match = url.pathname.match(/\/api\/months\/(\d{4}-\d{2})\/exists/);
+      const month = match ? match[1] : null;
+      
+      if (!month) {
+        return new Response(JSON.stringify({
+          error: 'Invalid month format. Expected YYYY-MM (e.g., 2025-01)'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      const exists = await monthsService.monthExists(month);
+      const data = exists ? await monthsService.getMonthlyData(month) : null;
+      
+      return new Response(JSON.stringify({
+        month,
+        exists,
+        is_read_only: data?.is_read_only ?? false
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (error) {
+      console.error('[MonthsHandler] Exists check failed:', error);
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to check month existence'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  };
+}
+
+// POST /api/months/:month/create - Create a new month from templates
+export function createMonthsHandlerCreate() {
+  return async (request: Request) => {
+    try {
+      const url = new URL(request.url);
+      const match = url.pathname.match(/\/api\/months\/(\d{4}-\d{2})\/create/);
+      const month = match ? match[1] : null;
+      
+      if (!month) {
+        return new Response(JSON.stringify({
+          error: 'Invalid month format. Expected YYYY-MM (e.g., 2025-01)'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      const monthlyData = await monthsService.createMonth(month);
+      
+      // Enrich with bill/income names and calculate leftover
+      const [enrichedData, leftoverResult] = await Promise.all([
+        enrichMonthlyData(monthlyData),
+        leftoverService.calculateLeftover(month)
+      ]);
+      
+      return new Response(JSON.stringify({
+        ...enrichedData,
+        summary: leftoverResult
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 201
+      });
+    } catch (error) {
+      console.error('[MonthsHandler] Create failed:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const status = errorMessage.includes('already exists') ? 409 : 500;
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to create month'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status
+      });
+    }
+  };
+}
+
+// DELETE /api/months/:month - Delete a month
+export function createMonthsHandlerDelete() {
+  return async (request: Request) => {
+    try {
+      const url = new URL(request.url);
+      const match = url.pathname.match(/\/api\/months\/(\d{4}-\d{2})$/);
+      const month = match ? match[1] : null;
+      
+      if (!month) {
+        return new Response(JSON.stringify({
+          error: 'Invalid month format. Expected YYYY-MM (e.g., 2025-01)'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      await monthsService.deleteMonth(month);
+      
+      return new Response(null, {
+        status: 204
+      });
+    } catch (error) {
+      console.error('[MonthsHandler] Delete failed:', error);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const status = errorMessage.includes('read-only') ? 403 : 
+                     errorMessage.includes('does not exist') ? 404 : 500;
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to delete month'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status
+      });
+    }
+  };
+}
+
+// POST /api/months/:month/lock - Toggle read-only status
+export function createMonthsHandlerLock() {
+  return async (request: Request) => {
+    try {
+      const url = new URL(request.url);
+      const match = url.pathname.match(/\/api\/months\/(\d{4}-\d{2})\/lock/);
+      const month = match ? match[1] : null;
+      
+      if (!month) {
+        return new Response(JSON.stringify({
+          error: 'Invalid month format. Expected YYYY-MM (e.g., 2025-01)'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      const monthlyData = await monthsService.toggleReadOnly(month);
+      
+      return new Response(JSON.stringify({
+        month,
+        is_read_only: monthlyData.is_read_only,
+        message: monthlyData.is_read_only ? 'Month is now locked (read-only)' : 'Month is now unlocked (editable)'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (error) {
+      console.error('[MonthsHandler] Lock toggle failed:', error);
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to toggle lock status'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  };
+}

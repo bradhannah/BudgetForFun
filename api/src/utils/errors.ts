@@ -28,6 +28,13 @@ export class ConflictError extends Error {
   }
 }
 
+export class ReadOnlyError extends Error {
+  constructor(month: string) {
+    super(`Month ${month} is read-only. Unlock it to make changes.`);
+    this.name = 'ReadOnlyError';
+  }
+}
+
 export interface ErrorDetails {
   message: string;
   type: string;
@@ -49,6 +56,10 @@ export function formatErrorForUser(error: unknown): string {
   }
   
   if (error instanceof ConflictError) {
+    return error.message;
+  }
+  
+  if (error instanceof ReadOnlyError) {
     return error.message;
   }
   
@@ -87,6 +98,13 @@ export function formatErrorForDev(error: unknown): ErrorDetails {
     return {
       message: error.message,
       type: 'ConflictError'
+    };
+  }
+  
+  if (error instanceof ReadOnlyError) {
+    return {
+      message: error.message,
+      type: 'ReadOnlyError'
     };
   }
   

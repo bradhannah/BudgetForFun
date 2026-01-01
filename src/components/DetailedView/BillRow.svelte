@@ -10,6 +10,8 @@
   export let bill: BillInstanceDetailed;
   export let month: string = '';
   export let compactMode: boolean = false;
+  export let readOnly: boolean = false;
+  export let onTogglePaid: ((id: string) => void) | null = null;
   
   const dispatch = createEventDispatcher();
   
@@ -109,6 +111,7 @@
   }
   
   function startEditingExpected() {
+    if (readOnly) return;
     if (isClosed) return;
     expectedEditValue = (bill.expected_amount / 100).toFixed(2);
     isEditingExpected = true;
@@ -278,15 +281,15 @@
       <!-- Action buttons -->
       <div class="action-buttons">
         {#if isClosed}
-          <button class="action-btn reopen" on:click={handleReopen} disabled={saving}>
+          <button class="action-btn reopen" on:click={handleReopen} disabled={saving || readOnly}>
             Reopen
           </button>
         {:else if hasTransactions}
-          <button class="action-btn close" on:click={handleClose} disabled={saving}>
+          <button class="action-btn close" on:click={handleClose} disabled={saving || readOnly}>
             Close
           </button>
         {:else if month}
-          <button class="action-btn pay-full" on:click={handlePayFull} disabled={saving}>
+          <button class="action-btn pay-full" on:click={handlePayFull} disabled={saving || readOnly}>
             Pay Full
           </button>
         {/if}

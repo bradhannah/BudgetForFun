@@ -6,6 +6,7 @@
   import { billsStore, loadBills, deleteBill, activeBillsWithContribution, totalFixedCosts, calculateMonthlyContribution as calculateBillContribution } from '../../stores/bills';
   import { incomesStore, loadIncomes, deleteIncome, activeIncomesWithContribution, totalMonthlyIncome, calculateMonthlyContribution as calculateIncomeContribution } from '../../stores/incomes';
   import { categoriesStore, loadCategories, deleteCategory, billCategories, incomeCategories } from '../../stores/categories';
+  import { variableExpenseTemplatesStore, type VariableExpenseTemplate } from '../../stores/variable-expense-templates';
   import { success, error as showError } from '../../stores/toast';
   
   // Components
@@ -18,6 +19,8 @@
   import IncomeView from './IncomeView.svelte';
   import CategoryForm from './CategoryForm.svelte';
   import CategoryView from './CategoryView.svelte';
+  import VariableExpenseTemplateForm from './VariableExpenseTemplateForm.svelte';
+  import VariableExpenseTemplateView from './VariableExpenseTemplateView.svelte';
   import LoadDefaultsButton from '../shared/LoadDefaultsButton.svelte';
   import ConfirmDialog from '../shared/ConfirmDialog.svelte';
   import CategoryOrderer from './CategoryOrderer.svelte';
@@ -29,7 +32,7 @@
   import type { Category } from '../../stores/categories';
 
   // Tab state
-  type TabId = 'payment-sources' | 'bills' | 'incomes' | 'categories';
+  type TabId = 'payment-sources' | 'bills' | 'incomes' | 'categories' | 'expense-templates';
   let activeTab: TabId = 'payment-sources';
 
   // Drawer state
@@ -40,10 +43,12 @@
   let viewingBill: Bill | null = null;
   let viewingIncome: Income | null = null;
   let viewingCategory: Category | null = null;
+  let viewingTemplate: VariableExpenseTemplate | null = null;
   let editingPaymentSource: PaymentSource | null = null;
   let editingBill: Bill | null = null;
   let editingIncome: Income | null = null;
   let editingCategory: Category | null = null;
+  let editingTemplate: VariableExpenseTemplate | null = null;
 
   // Delete confirmation state
   let showDeleteConfirm = false;
@@ -54,7 +59,8 @@
     { id: 'payment-sources', label: 'Payment Sources' },
     { id: 'bills', label: 'Bills' },
     { id: 'incomes', label: 'Incomes' },
-    { id: 'categories', label: 'Categories' }
+    { id: 'categories', label: 'Categories' },
+    { id: 'expense-templates', label: 'Expense Templates' }
   ];
 
   // Load all data on mount
@@ -63,7 +69,8 @@
       loadPaymentSources(),
       loadBills(),
       loadIncomes(),
-      loadCategories()
+      loadCategories(),
+      variableExpenseTemplatesStore.load()
     ]);
   });
 
@@ -82,6 +89,7 @@
       case 'bills': return 'Bill';
       case 'incomes': return 'Income';
       case 'categories': return 'Category';
+      case 'expense-templates': return 'Expense Template';
     }
   }
 
@@ -91,7 +99,7 @@
     drawerOpen = true;
   }
 
-  function openViewDrawer(item: PaymentSource | Bill | Income | Category) {
+  function openViewDrawer(item: PaymentSource | Bill | Income | Category | VariableExpenseTemplate) {
     drawerMode = 'view';
     clearAllItems();
     
@@ -109,12 +117,15 @@
       case 'categories':
         viewingCategory = item as Category;
         break;
+      case 'expense-templates':
+        viewingTemplate = item as VariableExpenseTemplate;
+        break;
     }
     
     drawerOpen = true;
   }
 
-  function openEditDrawer(item: PaymentSource | Bill | Income | Category) {
+  function openEditDrawer(item: PaymentSource | Bill | Income | Category | VariableExpenseTemplate) {
     drawerMode = 'edit';
     clearAllItems();
     
@@ -132,6 +143,9 @@
       case 'categories':
         editingCategory = item as Category;
         break;
+      case 'expense-templates':
+        editingTemplate = item as VariableExpenseTemplate;
+        break;
     }
     
     drawerOpen = true;
@@ -143,12 +157,14 @@
     if (viewingBill) editingBill = viewingBill;
     if (viewingIncome) editingIncome = viewingIncome;
     if (viewingCategory) editingCategory = viewingCategory;
+    if (viewingTemplate) editingTemplate = viewingTemplate;
     
     // Clear viewing items
     viewingPaymentSource = null;
     viewingBill = null;
     viewingIncome = null;
     viewingCategory = null;
+    viewingTemplate = null;
     
     drawerMode = 'edit';
   }
@@ -158,10 +174,12 @@
     viewingBill = null;
     viewingIncome = null;
     viewingCategory = null;
+    viewingTemplate = null;
     editingPaymentSource = null;
     editingBill = null;
     editingIncome = null;
     editingCategory = null;
+    editingTemplate = null;
   }
 
   function closeDrawer() {
@@ -191,6 +209,10 @@
         case 'categories':
           await deleteCategory(id);
           success('Category deleted');
+          break;
+        case 'expense-templates':
+          await variableExpenseTemplatesStore.delete(id);
+          success('Expense template deleted');
           break;
       }
       showDeleteConfirm = false;
@@ -266,8 +288,10 @@
               {$billsStore.bills.length}
             {:else if activeTab === 'incomes'}
               {$incomesStore.incomes.length}
-            {:else}
+            {:else if activeTab === 'categories'}
               {$categoriesStore.categories.length}
+            {:else if activeTab === 'expense-templates'}
+              {$variableExpenseTemplatesStore.templates.length}
             {/if})
           </span>
         </h2>
@@ -422,6 +446,43 @@
               </div>
             {/each}
           {/if}
+
+        {:else if activeTab === 'expense-templates'}
+          {#if $variableExpenseTemplatesStore.templates.length === 0}
+            <div class="empty-state">
+              <p>No expense templates yet.</p>
+              <p class="hint">Add templates for variable expenses like groceries, gas, entertainment.</p>
+            </div>
+          {:else}
+            {#each $variableExpenseTemplatesStore.templates as template}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="entity-card clickable" on:click={() => openViewDrawer(template)}>
+                <div class="card-header">
+                  <span class="card-name">{template.name}</span>
+                  <span class="card-badge" class:inactive={!template.is_active}>
+                    {template.frequency.replace('_', ' ')}
+                  </span>
+                </div>
+                {#if template.estimated_amount}
+                  <div class="card-amount" style="color: #ff6b6b;">
+                    ~{formatAmount(template.estimated_amount)}
+                  </div>
+                {/if}
+                <div class="card-meta">
+                  {#if template.is_active}
+                    <span style="color: #22c55e;">Active</span>
+                  {:else}
+                    <span style="color: #888;">Inactive</span>
+                  {/if}
+                </div>
+                <div class="card-actions" on:click|stopPropagation>
+                  <button class="btn-small btn-secondary" on:click={() => openEditDrawer(template)}>Edit</button>
+                  <button class="btn-small btn-danger" on:click={() => confirmDelete({ id: template.id, name: template.name })}>Delete</button>
+                </div>
+              </div>
+            {/each}
+          {/if}
         {/if}
       </div>
     </main>
@@ -438,6 +499,8 @@
         <IncomeView item={viewingIncome} onEdit={switchToEdit} onClose={closeDrawer} />
       {:else if activeTab === 'categories' && viewingCategory}
         <CategoryView item={viewingCategory} onEdit={switchToEdit} onClose={closeDrawer} />
+      {:else if activeTab === 'expense-templates' && viewingTemplate}
+        <VariableExpenseTemplateView item={viewingTemplate} onEdit={switchToEdit} onClose={closeDrawer} />
       {/if}
     {:else}
       {#if activeTab === 'payment-sources'}
@@ -461,6 +524,12 @@
       {:else if activeTab === 'categories'}
         <CategoryForm 
           editingItem={editingCategory} 
+          onSave={handleSave} 
+          onCancel={closeDrawer} 
+        />
+      {:else if activeTab === 'expense-templates'}
+        <VariableExpenseTemplateForm 
+          editingItem={editingTemplate} 
           onSave={handleSave} 
           onCancel={closeDrawer} 
         />

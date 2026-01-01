@@ -4,12 +4,26 @@ import { MonthsServiceImpl } from '../../services/months-service';
 import { LeftoverServiceImpl } from '../../services/leftover-service';
 import { BillsServiceImpl } from '../../services/bills-service';
 import { IncomesServiceImpl } from '../../services/incomes-service';
-import { formatErrorForUser } from '../../utils/errors';
+import { formatErrorForUser, ReadOnlyError } from '../../utils/errors';
 
 const monthsService = new MonthsServiceImpl();
 const leftoverService = new LeftoverServiceImpl();
 const billsService = new BillsServiceImpl();
 const incomesService = new IncomesServiceImpl();
+
+// Helper to check if month is read-only and return 403 response if so
+async function checkReadOnly(month: string): Promise<Response | null> {
+  const isReadOnly = await monthsService.isReadOnly(month);
+  if (isReadOnly) {
+    return new Response(JSON.stringify({
+      error: `Month ${month} is read-only. Unlock it to make changes.`
+    }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 403
+    });
+  }
+  return null;
+}
 
 // Extract month and instance ID from URL: /api/months/2025-01/bills/uuid
 function extractMonthAndId(url: string, type: 'bills' | 'incomes'): { month: string | null; id: string | null } {
@@ -36,6 +50,10 @@ export function createBillInstanceHandlerPUT() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       const { amount } = body;
@@ -111,6 +129,10 @@ export function createBillInstanceHandlerReset() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const instance = await monthsService.resetBillInstance(month, id);
       
       if (!instance) {
@@ -169,6 +191,10 @@ export function createIncomeInstanceHandlerPUT() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       const { amount } = body;
@@ -244,6 +270,10 @@ export function createIncomeInstanceHandlerReset() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const instance = await monthsService.resetIncomeInstance(month, id);
       
       if (!instance) {
@@ -305,6 +335,10 @@ export function createBillInstanceHandlerTogglePaid() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const instance = await monthsService.toggleBillInstancePaid(month, id);
       
@@ -368,6 +402,10 @@ export function createIncomeInstanceHandlerTogglePaid() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       // Parse optional actualAmount from body
       let actualAmount: number | undefined;
@@ -445,6 +483,10 @@ export function createBillInstanceHandlerClose() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const instance = await monthsService.closeBillInstance(month, id);
       
       if (!instance) {
@@ -503,6 +545,10 @@ export function createBillInstanceHandlerReopen() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const instance = await monthsService.reopenBillInstance(month, id);
       
@@ -563,6 +609,10 @@ export function createIncomeInstanceHandlerClose() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const instance = await monthsService.closeIncomeInstance(month, id);
       
       if (!instance) {
@@ -621,6 +671,10 @@ export function createIncomeInstanceHandlerReopen() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const instance = await monthsService.reopenIncomeInstance(month, id);
       
@@ -684,6 +738,10 @@ export function createBillInstanceHandlerUpdateExpected() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       const { amount } = body;
@@ -755,6 +813,10 @@ export function createIncomeInstanceHandlerUpdateExpected() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       const { amount } = body;

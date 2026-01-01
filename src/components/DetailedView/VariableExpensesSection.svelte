@@ -10,6 +10,7 @@
   export let month: string;
   export let paymentSources: PaymentSource[] = [];
   export let compactMode: boolean = false;
+  export let readOnly: boolean = false;
   
   const dispatch = createEventDispatcher();
   
@@ -50,6 +51,7 @@
   }
   
   function openAddForm() {
+    if (readOnly) return;
     editingId = null;
     name = '';
     amount = '';
@@ -59,6 +61,7 @@
   }
   
   function openEditForm(expense: VariableExpense) {
+    if (readOnly) return;
     editingId = expense.id;
     name = expense.name;
     amount = (expense.amount / 100).toFixed(2);
@@ -77,6 +80,7 @@
   }
   
   function confirmDeleteExpense(expense: VariableExpense) {
+    if (readOnly) return;
     expenseToDelete = expense;
     showDeleteConfirm = true;
   }
@@ -196,7 +200,7 @@
       </span>
       <h4>Variable Expenses</h4>
       <span class="item-count">({expenses.length})</span>
-      <button class="add-btn" on:click={openAddForm} title="Add variable expense">
+      <button class="add-btn" on:click={openAddForm} title="Add variable expense" disabled={readOnly}>
         +
       </button>
     </div>

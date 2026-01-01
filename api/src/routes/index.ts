@@ -32,7 +32,12 @@ import {
   createMonthsHandlerGenerate,
   createMonthsHandlerSync,
   createMonthsHandlerUpdateBalances,
-  createMonthsHandlerSummary
+  createMonthsHandlerSummary,
+  createMonthsHandlerManage,
+  createMonthsHandlerExists,
+  createMonthsHandlerCreate,
+  createMonthsHandlerDelete,
+  createMonthsHandlerLock
 } from './handlers/months.handlers';
 
 import {
@@ -103,6 +108,13 @@ import {
   createMakeRegularIncomeHandler
 } from './handlers/adhoc.handlers';
 
+import {
+  createVariableExpenseTemplatesHandlerGET,
+  createVariableExpenseTemplatesHandlerPOST,
+  createVariableExpenseTemplatesHandlerPUT,
+  createVariableExpenseTemplatesHandlerDELETE
+} from './handlers/variable-expense-templates.handlers';
+
 // Route definition type
 interface RouteDefinition {
   method: string;
@@ -155,8 +167,20 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/incomes', definition: { method: 'PUT', handler: createIncomesHandlerPUT(), hasPathParam: true } },
   { path: '/api/incomes', definition: { method: 'DELETE', handler: createIncomesHandlerDELETE(), hasPathParam: true } },
   
+  // Variable Expense Templates
+  { path: '/api/variable-expense-templates', definition: { method: 'GET', handler: createVariableExpenseTemplatesHandlerGET() } },
+  { path: '/api/variable-expense-templates', definition: { method: 'POST', handler: createVariableExpenseTemplatesHandlerPOST() } },
+  { path: '/api/variable-expense-templates', definition: { method: 'PUT', handler: createVariableExpenseTemplatesHandlerPUT(), hasPathParam: true } },
+  { path: '/api/variable-expense-templates', definition: { method: 'DELETE', handler: createVariableExpenseTemplatesHandlerDELETE(), hasPathParam: true } },
+  
   // Months list - must come before specific month routes
   { path: '/api/months', definition: { method: 'GET', handler: createMonthsHandlerList() } },
+  
+  // Month management routes - must come before other month routes with path params
+  { path: '/api/months/manage', definition: { method: 'GET', handler: createMonthsHandlerManage() } },
+  { path: '/api/months/exists', definition: { method: 'GET', handler: createMonthsHandlerExists(), hasPathParam: true } },
+  { path: '/api/months/create', definition: { method: 'POST', handler: createMonthsHandlerCreate(), hasPathParam: true } },
+  { path: '/api/months/lock', definition: { method: 'POST', handler: createMonthsHandlerLock(), hasPathParam: true } },
   
   // Months - routes with sub-paths (generate, bank-balances, summary, detailed) first for proper matching
   { path: '/api/months/detailed', definition: { method: 'GET', handler: createDetailedViewHandler(), hasPathParam: true } },
@@ -206,5 +230,8 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/months/expenses', definition: { method: 'POST', handler: createExpensesHandlerPOST(), hasPathParam: true } },
   { path: '/api/months/expenses', definition: { method: 'PUT', handler: createExpensesHandlerPUT(), hasPathParam: true } },
   { path: '/api/months/expenses', definition: { method: 'DELETE', handler: createExpensesHandlerDELETE(), hasPathParam: true } },
+  
+  // Month DELETE must come after other /api/months/* routes
+  { path: '/api/months', definition: { method: 'DELETE', handler: createMonthsHandlerDelete(), hasPathParam: true } },
   { path: '/api/months', definition: { method: 'GET', handler: createMonthsHandlerGET(), hasPathParam: true } },
 ];

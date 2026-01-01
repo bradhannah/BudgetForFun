@@ -8,6 +8,8 @@
   import { 
     monthsStore, 
     monthlyLoading, 
+    monthExists,
+    monthIsReadOnly,
     leftover, 
     billInstances,
     incomeInstances,
@@ -15,6 +17,7 @@
     bankBalances
   } from '../../stores/months';
   import { paymentSources, loadPaymentSources } from '../../stores/payment-sources';
+  import { success, error as showError } from '../../stores/toast';
   
   // Load payment sources on mount
   onMount(() => {
@@ -79,6 +82,30 @@
   function toggleWideMode() {
     wideMode.toggle();
   }
+  
+  // Create month data
+  let creating = false;
+  async function handleCreateMonth() {
+    if (!$currentMonth) return;
+    creating = true;
+    try {
+      const created = await monthsStore.createMonth($currentMonth);
+      if (created) {
+        success(`Month ${$currentMonth} created`);
+      }
+    } catch (error) {
+      showError('Failed to create month');
+    } finally {
+      creating = false;
+    }
+  }
+  
+  // Format month for display
+  function formatMonthDisplay(monthStr: string): string {
+    const [year, monthNum] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(monthNum) - 1);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
 </script>
 
 <div class="dashboard" class:wide={$wideMode}>
@@ -121,45 +148,73 @@
   </header>
   
   <main class="dashboard-content">
-    <!-- Account Balances - Top, Editable -->
-    <section class="balances-section">
-      <AccountBalancesCard
-        paymentSources={$paymentSources}
-        bankBalances={$bankBalances}
-        month={$currentMonth}
-        loading={$monthlyLoading}
-        on:updateBalances={handleUpdateBalances}
-      />
-    </section>
-    
-    <!-- Leftover Card -->
-    <section class="leftover-section">
-      <LeftoverCard leftover={$leftover} loading={$monthlyLoading} />
-    </section>
-    
-    <!-- Collapsible Sections - All collapsed by default, read-only -->
-    <section class="summary-sections">
-      <CollapsibleSummarySection
-        title="Income"
-        items={incomeItems}
-        type="income"
-        expanded={false}
-      />
+    {#if $monthlyLoading}
+      <div class="loading-state">
+        <p>Loading...</p>
+      </div>
+    {:else if !$monthExists}
+      <!-- Month not created prompt -->
+      <div class="create-month-prompt">
+        <div class="prompt-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M3 10H21" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M16 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h2>Month Not Created</h2>
+        <p>{$currentMonth ? formatMonthDisplay($currentMonth) : 'This month'} doesn't exist yet.</p>
+        <p class="prompt-hint">Create this month to start tracking bills, income, and expenses.</p>
+        <button 
+          class="btn btn-primary" 
+          on:click={handleCreateMonth}
+          disabled={creating}
+        >
+          {creating ? 'Creating...' : 'Create Month'}
+        </button>
+      </div>
+    {:else}
+      <!-- Account Balances - Top, Editable -->
+      <section class="balances-section">
+        <AccountBalancesCard
+          paymentSources={$paymentSources}
+          bankBalances={$bankBalances}
+          month={$currentMonth}
+          loading={$monthlyLoading}
+          on:updateBalances={handleUpdateBalances}
+        />
+      </section>
       
-      <CollapsibleSummarySection
-        title="Bills"
-        items={billItems}
-        type="bills"
-        expanded={false}
-      />
+      <!-- Leftover Card -->
+      <section class="leftover-section">
+        <LeftoverCard leftover={$leftover} loading={$monthlyLoading} />
+      </section>
       
-      <CollapsibleSummarySection
-        title="Variable Expenses"
-        items={expenseItems}
-        type="expenses"
-        expanded={false}
-      />
-    </section>
+      <!-- Collapsible Sections - All collapsed by default, read-only -->
+      <section class="summary-sections">
+        <CollapsibleSummarySection
+          title="Income"
+          items={incomeItems}
+          type="income"
+          expanded={false}
+        />
+        
+        <CollapsibleSummarySection
+          title="Bills"
+          items={billItems}
+          type="bills"
+          expanded={false}
+        />
+        
+        <CollapsibleSummarySection
+          title="Variable Expenses"
+          items={expenseItems}
+          type="expenses"
+          expanded={false}
+        />
+      </section>
+    {/if}
   </main>
 </div>
 
@@ -233,6 +288,72 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  
+  .loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+  }
+  
+  .create-month-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    background: #1a1a2e;
+    border-radius: 16px;
+    border: 1px solid #333355;
+  }
+  
+  .prompt-icon {
+    color: #24c8db;
+    margin-bottom: 20px;
+  }
+  
+  .create-month-prompt h2 {
+    margin: 0 0 12px;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #e4e4e7;
+  }
+  
+  .create-month-prompt p {
+    margin: 0 0 8px;
+    color: #888;
+    font-size: 1rem;
+  }
+  
+  .prompt-hint {
+    margin-bottom: 24px !important;
+    font-size: 0.875rem !important;
+    color: #666 !important;
+  }
+  
+  .btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .btn-primary {
+    background: #24c8db;
+    color: #000;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background: #1ab0c9;
   }
   
   @media (max-width: 768px) {

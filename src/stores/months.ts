@@ -79,12 +79,16 @@ interface MonthsState {
   data: MonthlyData | null;
   loading: boolean;
   error: string | null;
+  exists: boolean;
+  isReadOnly: boolean;
 }
 
 const initialState: MonthsState = {
   data: null,
   loading: false,
-  error: null
+  error: null,
+  exists: false,
+  isReadOnly: false
 };
 
 // Create the store
@@ -95,26 +99,19 @@ function createMonthsStore() {
     subscribe,
 
     async loadMonth(month: string): Promise<void> {
-      update(state => ({ ...state, loading: true, error: null }));
+      update(state => ({ ...state, loading: true, error: null, exists: false, isReadOnly: false }));
 
       try {
         // Try to load existing month data
         const response = await fetch(apiUrl(`/api/months/${month}`));
         
         if (response.status === 404) {
-          // Month doesn't exist, generate it
-          const generateResponse = await fetch(apiUrl(`/api/months/${month}/generate`), {
-            method: 'POST'
-          });
-
-          if (!generateResponse.ok) {
-            throw new Error('Failed to generate monthly data');
-          }
-
-          const data = await generateResponse.json();
+          // Month doesn't exist - don't auto-generate, let user decide
           update(state => ({
             ...state,
-            data: data as MonthlyData,
+            data: null,
+            exists: false,
+            isReadOnly: false,
             loading: false
           }));
         } else if (!response.ok) {
@@ -130,6 +127,8 @@ function createMonthsStore() {
             update(state => ({
               ...state,
               data: data as MonthlyData,
+              exists: true,
+              isReadOnly: data.is_read_only ?? false,
               loading: false
             }));
           } else {
@@ -138,6 +137,8 @@ function createMonthsStore() {
             update(state => ({
               ...state,
               data: data as MonthlyData,
+              exists: true,
+              isReadOnly: data.is_read_only ?? false,
               loading: false
             }));
           }
@@ -148,6 +149,37 @@ function createMonthsStore() {
           loading: false,
           error: error instanceof Error ? error.message : 'Unknown error'
         }));
+      }
+    },
+
+    async createMonth(month: string): Promise<boolean> {
+      update(state => ({ ...state, loading: true, error: null }));
+
+      try {
+        const generateResponse = await fetch(apiUrl(`/api/months/${month}/generate`), {
+          method: 'POST'
+        });
+
+        if (!generateResponse.ok) {
+          throw new Error('Failed to generate monthly data');
+        }
+
+        const data = await generateResponse.json();
+        update(state => ({
+          ...state,
+          data: data as MonthlyData,
+          exists: true,
+          isReadOnly: false,
+          loading: false
+        }));
+        return true;
+      } catch (error) {
+        update(state => ({
+          ...state,
+          loading: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }));
+        return false;
       }
     },
 
@@ -211,6 +243,8 @@ export const monthsStore = createMonthsStore();
 export const monthlyData = derived(monthsStore, ($store) => $store.data);
 export const monthlyLoading = derived(monthsStore, ($store) => $store.loading);
 export const monthlyError = derived(monthsStore, ($store) => $store.error);
+export const monthExists = derived(monthsStore, ($store) => $store.exists);
+export const monthIsReadOnly = derived(monthsStore, ($store) => $store.isReadOnly);
 
 // Summary values for dashboard cards
 export const leftoverSummary = derived(monthsStore, ($store) => $store.data?.summary || null);

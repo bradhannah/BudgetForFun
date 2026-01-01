@@ -3,11 +3,25 @@
 
 import { MonthsServiceImpl } from '../../services/months-service';
 import { LeftoverServiceImpl } from '../../services/leftover-service';
-import { formatErrorForUser } from '../../utils/errors';
+import { formatErrorForUser, ReadOnlyError } from '../../utils/errors';
 import type { VariableExpense } from '../../types';
 
 const monthsService = new MonthsServiceImpl();
 const leftoverService = new LeftoverServiceImpl();
+
+// Helper to check if month is read-only and return 403 response if so
+async function checkReadOnly(month: string): Promise<Response | null> {
+  const isReadOnly = await monthsService.isReadOnly(month);
+  if (isReadOnly) {
+    return new Response(JSON.stringify({
+      error: `Month ${month} is read-only. Unlock it to make changes.`
+    }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 403
+    });
+  }
+  return null;
+}
 
 // Helper to extract month from URL path
 function extractMonth(pathname: string): string | null {
@@ -90,6 +104,10 @@ export function createExpensesHandlerPOST() {
           status: 404
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       
@@ -198,6 +216,10 @@ export function createExpensesHandlerPUT() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const body = await request.json();
       const now = new Date().toISOString();
       
@@ -282,6 +304,10 @@ export function createExpensesHandlerDELETE() {
           status: 404
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       monthlyData.variable_expenses.splice(expenseIndex, 1);
       monthlyData.updated_at = new Date().toISOString();

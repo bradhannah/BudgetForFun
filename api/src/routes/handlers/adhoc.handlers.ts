@@ -2,10 +2,26 @@
 // Handles creation and management of one-time bills and incomes
 
 import { AdhocServiceImpl } from '../../services/adhoc-service';
+import { MonthsServiceImpl } from '../../services/months-service';
 import type { CreateAdhocBillRequest, CreateAdhocIncomeRequest, UpdateAdhocRequest, MakeRegularRequest } from '../../services/adhoc-service';
-import { formatErrorForUser, NotFoundError, ValidationError } from '../../utils/errors';
+import { formatErrorForUser, NotFoundError, ValidationError, ReadOnlyError } from '../../utils/errors';
 
 const adhocService = new AdhocServiceImpl();
+const monthsService = new MonthsServiceImpl();
+
+// Helper to check if month is read-only and return 403 response if so
+async function checkReadOnly(month: string): Promise<Response | null> {
+  const isReadOnly = await monthsService.isReadOnly(month);
+  if (isReadOnly) {
+    return new Response(JSON.stringify({
+      error: `Month ${month} is read-only. Unlock it to make changes.`
+    }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 403
+    });
+  }
+  return null;
+}
 
 // Helper to extract params from URL path
 // /api/months/2025-01/adhoc/bills -> { month: '2025-01', instanceId: null }
@@ -56,6 +72,10 @@ export function createAdhocBillHandlerPOST() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const body = await request.json() as CreateAdhocBillRequest;
       const billInstance = await adhocService.createAdhocBill(month, body);
       
@@ -102,6 +122,10 @@ export function createAdhocBillHandlerPUT() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json() as UpdateAdhocRequest;
       const billInstance = await adhocService.updateAdhocBill(month, instanceId, body);
@@ -164,6 +188,10 @@ export function createAdhocBillHandlerDELETE() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       await adhocService.deleteAdhocBill(month, instanceId);
       
       return new Response(null, { status: 204 });
@@ -213,6 +241,10 @@ export function createMakeRegularBillHandler() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json() as MakeRegularRequest;
       
@@ -287,6 +319,10 @@ export function createAdhocIncomeHandlerPOST() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const body = await request.json() as CreateAdhocIncomeRequest;
       const incomeInstance = await adhocService.createAdhocIncome(month, body);
       
@@ -333,6 +369,10 @@ export function createAdhocIncomeHandlerPUT() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json() as UpdateAdhocRequest;
       const incomeInstance = await adhocService.updateAdhocIncome(month, instanceId, body);
@@ -395,6 +435,10 @@ export function createAdhocIncomeHandlerDELETE() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       await adhocService.deleteAdhocIncome(month, instanceId);
       
       return new Response(null, { status: 204 });
@@ -444,6 +488,10 @@ export function createMakeRegularIncomeHandler() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json() as MakeRegularRequest;
       

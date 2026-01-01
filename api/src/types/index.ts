@@ -131,6 +131,21 @@ interface VariableExpense {
   updated_at: string;
 }
 
+type VariableExpenseFrequency = 'weekly' | 'biweekly' | 'monthly' | 'as_needed';
+
+interface VariableExpenseTemplate {
+  id: string;
+  name: string;
+  category_id?: string;           // Optional category for grouping
+  payment_source_id?: string;     // Default payment source
+  estimated_amount?: number;      // Hint for budgeting (cents)
+  frequency: VariableExpenseFrequency;
+  notes?: string;                 // User reminder
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 interface FreeFlowingExpense {
   id: string;
   name: string;
@@ -169,6 +184,7 @@ interface MonthlyData {
   variable_expenses: VariableExpense[];
   free_flowing_expenses: FreeFlowingExpense[];
   bank_balances: Record<string, number>;
+  is_read_only: boolean;        // Lock month from edits
   created_at: string;
   updated_at: string;
 }
@@ -327,12 +343,14 @@ export type {
   PaymentSourceType,
   CategoryType,
   UndoEntityType,
+  VariableExpenseFrequency,
   Bill,
   Income,
   Payment,
   BillInstance,
   IncomeInstance,
   VariableExpense,
+  VariableExpenseTemplate,
   FreeFlowingExpense,
   PaymentSource,
   Category,

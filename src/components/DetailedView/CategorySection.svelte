@@ -10,6 +10,7 @@
   export let month: string = '';
   export let compactMode: boolean = false;
   export let onTogglePaid: ((id: string) => void) | null = null;
+  export let readOnly: boolean = false;
   
   const dispatch = createEventDispatcher();
   
@@ -52,7 +53,7 @@
       <span class="category-color" style="background-color: {section.category.color}"></span>
       <h4>{section.category.name}</h4>
       <span class="item-count">({section.items.length})</span>
-      <button class="add-adhoc-btn" on:click={openAdHocForm} title="Add ad-hoc {type === 'bills' ? 'bill' : 'income'}">
+      <button class="add-adhoc-btn" on:click={openAdHocForm} title="Add ad-hoc {type === 'bills' ? 'bill' : 'income'}" disabled={readOnly}>
         +
       </button>
     </div>
@@ -74,9 +75,9 @@
   <div class="category-items">
     {#each section.items as item (item.id)}
       {#if type === 'bills' && isBillInstance(item)}
-        <BillRow bill={item} {month} {compactMode} {onTogglePaid} on:refresh={handleRefresh} />
+        <BillRow bill={item} {month} {compactMode} {onTogglePaid} {readOnly} on:refresh={handleRefresh} />
       {:else if type === 'income' && !isBillInstance(item)}
-        <IncomeRow income={item} {month} {compactMode} {onTogglePaid} on:refresh={handleRefresh} />
+        <IncomeRow income={item} {month} {compactMode} {onTogglePaid} {readOnly} on:refresh={handleRefresh} />
       {/if}
     {/each}
   </div>

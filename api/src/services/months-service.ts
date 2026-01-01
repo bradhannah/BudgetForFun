@@ -3,9 +3,11 @@
 import { StorageServiceImpl } from './storage';
 import { BillsServiceImpl } from './bills-service';
 import { IncomesServiceImpl } from './incomes-service';
+import { VariableExpenseTemplatesServiceImpl } from './variable-expense-templates-service';
 import type { StorageService } from './storage';
 import type { BillsService } from './bills-service';
 import type { IncomesService } from './incomes-service';
+import type { VariableExpenseTemplatesService } from './variable-expense-templates-service';
 import type { 
   MonthlyData,
   BillInstance,
@@ -26,6 +28,8 @@ import {
 // Summary for a single month in the list
 export interface MonthSummary {
   month: string;
+  exists: boolean;              // Whether the month file exists
+  is_read_only: boolean;        // Lock status
   created_at: string;
   updated_at: string;
   total_income: number;
@@ -41,6 +45,14 @@ export interface MonthsService {
   syncMonthlyData(month: string): Promise<MonthlyData>;
   updateBankBalances(month: string, balances: Record<string, number>): Promise<MonthlyData>;
   saveMonthlyData(month: string, data: MonthlyData): Promise<void>;
+  
+  // Month management
+  monthExists(month: string): Promise<boolean>;
+  createMonth(month: string): Promise<MonthlyData>;
+  deleteMonth(month: string): Promise<void>;
+  toggleReadOnly(month: string): Promise<MonthlyData>;
+  isReadOnly(month: string): Promise<boolean>;
+  getMonthsForManagement(): Promise<MonthSummary[]>;
   
   getBillInstances(month: string): Promise<BillInstance[]>;
   getIncomeInstances(month: string): Promise<IncomeInstance[]>;
@@ -72,11 +84,13 @@ export class MonthsServiceImpl implements MonthsService {
   private storage: StorageService;
   private billsService: BillsService;
   private incomesService: IncomesService;
+  private variableExpenseTemplatesService: VariableExpenseTemplatesService;
   
   constructor() {
     this.storage = StorageServiceImpl.getInstance();
     this.billsService = new BillsServiceImpl();
     this.incomesService = new IncomesServiceImpl();
+    this.variableExpenseTemplatesService = new VariableExpenseTemplatesServiceImpl();
   }
   
   public async getMonthlyData(month: string): Promise<MonthlyData | null> {
@@ -150,6 +164,8 @@ export class MonthsServiceImpl implements MonthsService {
           
           summaries.push({
             month: data.month,
+            exists: true,
+            is_read_only: data.is_read_only ?? false,
             created_at: data.created_at,
             updated_at: data.updated_at,
             total_income: totalIncome,
@@ -246,6 +262,7 @@ export class MonthsServiceImpl implements MonthsService {
         variable_expenses: [],
         free_flowing_expenses: [],
         bank_balances: {},
+        is_read_only: false,
         created_at: now,
         updated_at: now
       };
@@ -834,6 +851,263 @@ export class MonthsServiceImpl implements MonthsService {
     } catch (error) {
       console.error('[MonthsService] Failed to update income expected amount:', error);
       throw error;
+    }
+  }
+  
+  // ============================================================================
+  // Month Management Methods
+  // ============================================================================
+  
+  public async monthExists(month: string): Promise<boolean> {
+    try {
+      const file = Bun.file(`data/months/${month}.json`);
+      return await file.exists();
+    } catch (error) {
+      console.error('[MonthsService] Failed to check month exists:', error);
+      return false;
+    }
+  }
+  
+  public async createMonth(month: string): Promise<MonthlyData> {
+    console.log(`[MonthsService] Creating month ${month}`);
+    
+    // Check if month already exists
+    const exists = await this.monthExists(month);
+    if (exists) {
+      throw new Error(`Month ${month} already exists`);
+    }
+    
+    // Validate month format (YYYY-MM)
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new Error('Invalid month format. Expected YYYY-MM');
+    }
+    
+    // Validate month is current or next month only
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (month !== currentMonth && month !== nextMonth) {
+      // Allow creating past months that don't exist (for flexibility)
+      // But warn in logs
+      console.warn(`[MonthsService] Creating month ${month} which is not current (${currentMonth}) or next (${nextMonth})`);
+    }
+    
+    try {
+      const bills = await this.billsService.getAll();
+      const incomes = await this.incomesService.getAll();
+      const variableExpenseTemplates = await this.variableExpenseTemplatesService.getActive();
+      
+      const nowIso = new Date().toISOString();
+      
+      // Generate bill instances from active bills
+      const billInstances: BillInstance[] = [];
+      for (const bill of bills) {
+        if (!bill.is_active) continue;
+        
+        const amount = calculateActualMonthlyAmount(
+          bill.amount,
+          bill.billing_period,
+          bill.start_date,
+          month
+        );
+        
+        billInstances.push({
+          id: crypto.randomUUID(),
+          bill_id: bill.id,
+          month,
+          amount,
+          expected_amount: amount,
+          actual_amount: undefined,
+          payments: [],
+          is_default: true,
+          is_paid: false,
+          is_closed: false,
+          is_adhoc: false,
+          due_date: undefined,
+          created_at: nowIso,
+          updated_at: nowIso
+        });
+      }
+      
+      // Generate income instances from active incomes
+      const incomeInstances: IncomeInstance[] = [];
+      for (const income of incomes) {
+        if (!income.is_active) continue;
+        
+        const amount = calculateActualMonthlyAmount(
+          income.amount,
+          income.billing_period,
+          income.start_date,
+          month
+        );
+        
+        incomeInstances.push({
+          id: crypto.randomUUID(),
+          income_id: income.id,
+          month,
+          amount,
+          expected_amount: amount,
+          actual_amount: undefined,
+          payments: [],
+          is_default: true,
+          is_paid: false,
+          is_closed: false,
+          is_adhoc: false,
+          due_date: undefined,
+          created_at: nowIso,
+          updated_at: nowIso
+        });
+      }
+      
+      // Generate variable expenses from active templates
+      const variableExpenses: VariableExpense[] = [];
+      for (const template of variableExpenseTemplates) {
+        variableExpenses.push({
+          id: crypto.randomUUID(),
+          name: template.name,
+          amount: template.estimated_amount || 0,
+          payment_source_id: template.payment_source_id || '',
+          month,
+          created_at: nowIso,
+          updated_at: nowIso
+        });
+      }
+      
+      const monthlyData: MonthlyData = {
+        month,
+        bill_instances: billInstances,
+        income_instances: incomeInstances,
+        variable_expenses: variableExpenses,
+        free_flowing_expenses: [],
+        bank_balances: {},
+        is_read_only: false,
+        created_at: nowIso,
+        updated_at: nowIso
+      };
+      
+      await this.saveMonthlyData(month, monthlyData);
+      console.log(`[MonthsService] Created month ${month} with ${billInstances.length} bills, ${incomeInstances.length} incomes, ${variableExpenses.length} variable expenses`);
+      
+      return monthlyData;
+    } catch (error) {
+      console.error('[MonthsService] Failed to create month:', error);
+      throw error;
+    }
+  }
+  
+  public async deleteMonth(month: string): Promise<void> {
+    console.log(`[MonthsService] Deleting month ${month}`);
+    
+    try {
+      // Check if month exists
+      const exists = await this.monthExists(month);
+      if (!exists) {
+        throw new Error(`Month ${month} does not exist`);
+      }
+      
+      // Check if month is read-only
+      const data = await this.getMonthlyData(month);
+      if (data?.is_read_only) {
+        throw new Error(`Month ${month} is read-only. Unlock it before deleting.`);
+      }
+      
+      // Delete the file
+      const fs = await import('node:fs/promises');
+      await fs.unlink(`data/months/${month}.json`);
+      
+      console.log(`[MonthsService] Deleted month ${month}`);
+    } catch (error) {
+      console.error('[MonthsService] Failed to delete month:', error);
+      throw error;
+    }
+  }
+  
+  public async toggleReadOnly(month: string): Promise<MonthlyData> {
+    console.log(`[MonthsService] Toggling read-only for ${month}`);
+    
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) {
+        throw new Error(`Month ${month} does not exist`);
+      }
+      
+      const now = new Date().toISOString();
+      data.is_read_only = !data.is_read_only;
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      console.log(`[MonthsService] Month ${month} is now ${data.is_read_only ? 'read-only' : 'editable'}`);
+      
+      return data;
+    } catch (error) {
+      console.error('[MonthsService] Failed to toggle read-only:', error);
+      throw error;
+    }
+  }
+  
+  public async isReadOnly(month: string): Promise<boolean> {
+    try {
+      const data = await this.getMonthlyData(month);
+      return data?.is_read_only ?? false;
+    } catch (error) {
+      console.error('[MonthsService] Failed to check read-only status:', error);
+      return false;
+    }
+  }
+  
+  public async getMonthsForManagement(): Promise<MonthSummary[]> {
+    try {
+      // Get all existing months
+      const existingMonths = await this.getAllMonths();
+      
+      // Calculate current and next month
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const nextMonth = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // Build a set of existing month strings
+      const existingMonthSet = new Set(existingMonths.map(m => m.month));
+      
+      // Add current month placeholder if it doesn't exist
+      if (!existingMonthSet.has(currentMonth)) {
+        existingMonths.push({
+          month: currentMonth,
+          exists: false,
+          is_read_only: false,
+          created_at: '',
+          updated_at: '',
+          total_income: 0,
+          total_bills: 0,
+          total_expenses: 0,
+          leftover: 0
+        });
+      }
+      
+      // Add next month placeholder if it doesn't exist
+      if (!existingMonthSet.has(nextMonth)) {
+        existingMonths.push({
+          month: nextMonth,
+          exists: false,
+          is_read_only: false,
+          created_at: '',
+          updated_at: '',
+          total_income: 0,
+          total_bills: 0,
+          total_expenses: 0,
+          leftover: 0
+        });
+      }
+      
+      // Sort by month descending (newest first)
+      existingMonths.sort((a, b) => b.month.localeCompare(a.month));
+      
+      return existingMonths;
+    } catch (error) {
+      console.error('[MonthsService] Failed to get months for management:', error);
+      return [];
     }
   }
 }

@@ -2,9 +2,25 @@
 // Manages partial payments for bill and income instances
 
 import { PaymentsServiceImpl } from '../../services/payments-service';
-import { formatErrorForUser, NotFoundError, ValidationError } from '../../utils/errors';
+import { MonthsServiceImpl } from '../../services/months-service';
+import { formatErrorForUser, NotFoundError, ValidationError, ReadOnlyError } from '../../utils/errors';
 
 const paymentsService = new PaymentsServiceImpl();
+const monthsService = new MonthsServiceImpl();
+
+// Helper to check if month is read-only and return 403 response if so
+async function checkReadOnly(month: string): Promise<Response | null> {
+  const isReadOnly = await monthsService.isReadOnly(month);
+  if (isReadOnly) {
+    return new Response(JSON.stringify({
+      error: `Month ${month} is read-only. Unlock it to make changes.`
+    }), {
+      headers: { 'Content-Type': 'application/json' },
+      status: 403
+    });
+  }
+  return null;
+}
 
 // Helper to extract params from URL path for bills
 // /api/months/2025-01/bills/uuid/payments -> { month: '2025-01', billId: 'uuid' }
@@ -55,6 +71,10 @@ export function createAddPaymentHandler() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       
@@ -126,6 +146,10 @@ export function createUpdatePaymentHandler() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       
@@ -203,6 +227,10 @@ export function createDeletePaymentHandler() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const billInstance = await paymentsService.removePayment(month, billId, paymentId);
       
@@ -304,6 +332,10 @@ export function createAddIncomePaymentHandler() {
         });
       }
       
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
       const body = await request.json();
       
       if (typeof body.amount !== 'number' || body.amount <= 0) {
@@ -374,6 +406,10 @@ export function createUpdateIncomePaymentHandler() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const body = await request.json();
       
@@ -451,6 +487,10 @@ export function createDeleteIncomePaymentHandler() {
           status: 400
         });
       }
+      
+      // Check if month is read-only
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
       
       const incomeInstance = await paymentsService.removeIncomePayment(month, incomeId, paymentId);
       

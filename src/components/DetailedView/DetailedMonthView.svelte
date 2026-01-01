@@ -8,7 +8,7 @@
   import { success, error as showError } from '../../stores/toast';
   import { widthMode } from '../../stores/ui';
   import { paymentSources, loadPaymentSources } from '../../stores/payment-sources';
-  import { variableExpenses, monthsStore } from '../../stores/months';
+  import { variableExpenses, monthsStore, monthExists, monthIsReadOnly } from '../../stores/months';
   import { apiUrl } from '$lib/api/client';
   
   export let month: string;
@@ -128,6 +128,24 @@
     detailedMonth.refresh();
     monthsStore.loadMonth(month);
   }
+  
+  // Create month data
+  let creating = false;
+  async function handleCreateMonth() {
+    creating = true;
+    try {
+      const created = await monthsStore.createMonth(month);
+      if (created) {
+        success(`Month ${month} created`);
+        // Reload detailed view
+        detailedMonth.loadMonth(month);
+      }
+    } catch (error) {
+      showError('Failed to create month');
+    } finally {
+      creating = false;
+    }
+  }
 </script>
 
 <div class="detailed-view" class:compact={compactMode}>
@@ -225,9 +243,42 @@
     {/if}
   </header>
   
+  {#if $monthIsReadOnly && $monthExists}
+    <div class="read-only-banner">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" stroke-width="2"/>
+        <path d="M7 11V7C7 4.23858 9.23858 2 12 2C14.7614 2 17 4.23858 17 7V11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span>This month is locked. Unlock it from Manage Months to make changes.</span>
+    </div>
+  {/if}
+
+  
   {#if $detailedMonthLoading}
     <div class="loading-state">
       <p>Loading detailed view...</p>
+    </div>
+  {:else if !$monthExists}
+    <!-- Month not created prompt -->
+    <div class="create-month-prompt">
+      <div class="prompt-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+          <path d="M3 10H21" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M16 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2>Month Not Created</h2>
+      <p>{formatMonthDisplay(month)} doesn't exist yet.</p>
+      <p class="prompt-hint">Create this month to start tracking bills, income, and expenses.</p>
+      <button 
+        class="btn btn-primary" 
+        on:click={handleCreateMonth}
+        disabled={creating}
+      >
+        {creating ? 'Creating...' : 'Create Month'}
+      </button>
     </div>
   {:else if $detailedMonthError}
     <div class="error-state">
@@ -258,7 +309,7 @@
               <p class="empty-text">No bills for this month.</p>
             {:else}
               {#each $detailedMonthData.billSections.filter(s => s.items.length > 0) as section (section.category.id)}
-                <CategorySection {section} type="bills" {month} {compactMode} onTogglePaid={handleToggleBillPaid} on:refresh={refreshData} />
+                <CategorySection {section} type="bills" {month} {compactMode} readOnly={$monthIsReadOnly} onTogglePaid={handleToggleBillPaid} on:refresh={refreshData} />
               {/each}
             {/if}
             
@@ -268,6 +319,7 @@
               {month}
               paymentSources={$paymentSources}
               {compactMode}
+              readOnly={$monthIsReadOnly}
               on:refresh={refreshData}
             />
           </section>
@@ -282,7 +334,7 @@
               <p class="empty-text">No income for this month.</p>
             {:else}
               {#each $detailedMonthData.incomeSections.filter(s => s.items.length > 0) as section (section.category.id)}
-                <CategorySection {section} type="income" {month} {compactMode} onTogglePaid={handleToggleIncomePaid} on:refresh={refreshData} />
+                <CategorySection {section} type="income" {month} {compactMode} readOnly={$monthIsReadOnly} onTogglePaid={handleToggleIncomePaid} on:refresh={refreshData} />
               {/each}
             {/if}
           </section>
@@ -532,6 +584,88 @@
     color: #666;
     text-align: center;
     padding: 40px 20px;
+  }
+  
+  /* Create month prompt styles */
+  .create-month-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    background: #1a1a2e;
+    border-radius: 16px;
+    border: 1px solid #333355;
+  }
+  
+  .prompt-icon {
+    color: #888;
+    margin-bottom: 16px;
+  }
+  
+  .create-month-prompt h2 {
+    margin: 0 0 8px 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #e4e4e7;
+  }
+  
+  .create-month-prompt p {
+    margin: 0 0 4px 0;
+    color: #888;
+    font-size: 1rem;
+  }
+  
+  .prompt-hint {
+    font-size: 0.875rem !important;
+    color: #666 !important;
+    margin-bottom: 20px !important;
+  }
+  
+  .btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+  
+  .btn-primary {
+    background: #24c8db;
+    color: #000;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  /* Read-only banner styles */
+  .read-only-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    color: #fbbf24;
+  }
+  
+  .read-only-banner svg {
+    flex-shrink: 0;
+  }
+  
+  .read-only-banner span {
+    font-size: 0.875rem;
   }
   
   /* Responsive: stack on smaller screens */
