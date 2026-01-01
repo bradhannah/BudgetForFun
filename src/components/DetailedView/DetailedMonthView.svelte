@@ -3,9 +3,13 @@
   import { goto } from '$app/navigation';
   import { detailedMonth, detailedMonthData, detailedMonthLoading, detailedMonthError } from '../../stores/detailed-month';
   import CategorySection from './CategorySection.svelte';
-  import SectionTally from './SectionTally.svelte';
-  import SummaryFooter from './SummaryFooter.svelte';
+  import SummarySidebar from './SummarySidebar.svelte';
+  import VariableExpensesSection from './VariableExpensesSection.svelte';
   import { success, error as showError } from '../../stores/toast';
+  import { wideMode } from '../../stores/ui';
+  import { paymentSources, loadPaymentSources } from '../../stores/payment-sources';
+  import { variableExpenses, monthsStore } from '../../stores/months';
+  import { apiUrl } from '$lib/api/client';
   
   export let month: string;
   
@@ -26,13 +30,13 @@
   
   function getPrevMonth(monthStr: string): string {
     const [year, monthNum] = monthStr.split('-').map(Number);
-    const date = new Date(year, monthNum - 2); // -2 because months are 0-indexed and we want prev
+    const date = new Date(year, monthNum - 2);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
   
   function getNextMonth(monthStr: string): string {
     const [year, monthNum] = monthStr.split('-').map(Number);
-    const date = new Date(year, monthNum); // monthNum (not -1) gives us next month
+    const date = new Date(year, monthNum);
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
   
@@ -46,7 +50,7 @@
   
   async function handleToggleBillPaid(instanceId: string) {
     try {
-      const response = await fetch(`http://localhost:3000/api/months/${month}/bills/${instanceId}/paid`, {
+      const response = await fetch(apiUrl(`/api/months/${month}/bills/${instanceId}/paid`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -56,7 +60,12 @@
         throw new Error(data.error || 'Failed to toggle paid status');
       }
       
-      await detailedMonth.refresh();
+      const result = await response.json();
+      detailedMonth.updateBillPaidStatus(
+        instanceId, 
+        result.instance.is_paid, 
+        result.instance.actual_amount
+      );
       success('Bill status updated');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -66,7 +75,7 @@
   
   async function handleToggleIncomePaid(instanceId: string) {
     try {
-      const response = await fetch(`http://localhost:3000/api/months/${month}/incomes/${instanceId}/paid`, {
+      const response = await fetch(apiUrl(`/api/months/${month}/incomes/${instanceId}/paid`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -76,7 +85,8 @@
         throw new Error(data.error || 'Failed to toggle received status');
       }
       
-      await detailedMonth.refresh();
+      const result = await response.json();
+      detailedMonth.updateIncomePaidStatus(instanceId, result.instance.is_paid);
       success('Income status updated');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -86,6 +96,8 @@
   
   onMount(() => {
     detailedMonth.loadMonth(month);
+    monthsStore.loadMonth(month);
+    loadPaymentSources();
   });
   
   onDestroy(() => {
@@ -95,12 +107,30 @@
   // Reload when month changes
   $: if (month) {
     detailedMonth.loadMonth(month);
+    monthsStore.loadMonth(month);
   }
   
   $: leftoverClass = $detailedMonthData?.leftover && $detailedMonthData.leftover < 0 ? 'negative' : 'positive';
+  
+  // Compact mode state
+  let compactMode = false;
+  
+  // Calculate variable expenses total for sidebar
+  $: variableExpensesTotal = $variableExpenses.reduce((sum, e) => sum + e.amount, 0);
+  
+  // Toggle width mode
+  function toggleWideMode() {
+    wideMode.toggle();
+  }
+  
+  // Refresh all data
+  function refreshData() {
+    detailedMonth.refresh();
+    monthsStore.loadMonth(month);
+  }
 </script>
 
-<div class="detailed-view">
+<div class="detailed-view" class:compact={compactMode} class:wide={$wideMode}>
   <header class="view-header">
     <div class="header-content">
       <a href="/" class="back-link">
@@ -126,6 +156,48 @@
     
     {#if $detailedMonthData}
       <div class="header-summary">
+        <!-- Width toggle -->
+        <button 
+          class="width-toggle" 
+          on:click={toggleWideMode}
+          title={$wideMode ? 'Normal width' : 'Wide mode'}
+        >
+          {#if $wideMode}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M9 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M15 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M12 9L9 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 9L15 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          {:else}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M4 4H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M4 20H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M16 4H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M16 20H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M4 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M20 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M9 12L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15 12L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          {/if}
+        </button>
+        <!-- Compact toggle -->
+        <button class="compact-toggle" on:click={() => compactMode = !compactMode} title={compactMode ? 'Normal view' : 'Compact view'}>
+          {#if compactMode}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          {:else}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          {/if}
+        </button>
         {#if $detailedMonthData.leftoverBreakdown.hasActuals}
           <div class="leftover-display" class:negative={leftoverClass === 'negative'}>
             <span class="leftover-label">Leftover</span>
@@ -151,76 +223,80 @@
       <button on:click={() => detailedMonth.loadMonth(month)}>Retry</button>
     </div>
   {:else if $detailedMonthData}
-    <div class="sections-container">
-      <!-- Bills Section -->
-      <section class="section bills-section">
-        <div class="section-header">
-          <h2>Bills</h2>
-        </div>
-        
-        {#if $detailedMonthData.billSections.length === 0}
-          <p class="empty-text">No bills for this month.</p>
-        {:else}
-          {#each $detailedMonthData.billSections.filter(s => s.items.length > 0) as section (section.category.id)}
-            <CategorySection {section} type="bills" {month} onTogglePaid={handleToggleBillPaid} on:refresh={() => detailedMonth.refresh()} />
-          {/each}
-        {/if}
-        
-        <!-- Bills Summary -->
-        <div class="section-summary">
-          <SectionTally tally={$detailedMonthData.tallies.bills} type="bills" label="Regular Bills" />
-          {#if $detailedMonthData.tallies.adhocBills.actual > 0}
-            <SectionTally tally={$detailedMonthData.tallies.adhocBills} type="bills" label="Ad-hoc" />
-          {/if}
-          <SectionTally tally={$detailedMonthData.tallies.totalExpenses} type="bills" label="Total Expenses" />
-        </div>
-      </section>
+    <div class="detailed-layout">
+      <!-- Left: Summary Sidebar -->
+      <SummarySidebar 
+        paymentSources={$paymentSources}
+        bankBalances={$detailedMonthData.bankBalances}
+        tallies={$detailedMonthData.tallies}
+        leftoverBreakdown={$detailedMonthData.leftoverBreakdown}
+        {variableExpensesTotal}
+      />
       
-      <!-- Income Section -->
-      <section class="section income-section">
-        <div class="section-header">
-          <h2>Income</h2>
+      <!-- Right: Main Content -->
+      <div class="main-content">
+        <div class="sections-container">
+          <!-- Bills Section -->
+          <section class="section bills-section">
+            <div class="section-header">
+              <h2>Bills</h2>
+            </div>
+            
+            {#if $detailedMonthData.billSections.length === 0}
+              <p class="empty-text">No bills for this month.</p>
+            {:else}
+              {#each $detailedMonthData.billSections.filter(s => s.items.length > 0) as section (section.category.id)}
+                <CategorySection {section} type="bills" {month} {compactMode} onTogglePaid={handleToggleBillPaid} on:refresh={refreshData} />
+              {/each}
+            {/if}
+            
+            <!-- Variable Expenses Section -->
+            <VariableExpensesSection 
+              expenses={$variableExpenses}
+              {month}
+              paymentSources={$paymentSources}
+              {compactMode}
+              on:refresh={refreshData}
+            />
+          </section>
+          
+          <!-- Income Section -->
+          <section class="section income-section">
+            <div class="section-header">
+              <h2>Income</h2>
+            </div>
+            
+            {#if $detailedMonthData.incomeSections.length === 0}
+              <p class="empty-text">No income for this month.</p>
+            {:else}
+              {#each $detailedMonthData.incomeSections.filter(s => s.items.length > 0) as section (section.category.id)}
+                <CategorySection {section} type="income" {month} {compactMode} onTogglePaid={handleToggleIncomePaid} on:refresh={refreshData} />
+              {/each}
+            {/if}
+          </section>
         </div>
-        
-        {#if $detailedMonthData.incomeSections.length === 0}
-          <p class="empty-text">No income for this month.</p>
-        {:else}
-          {#each $detailedMonthData.incomeSections.filter(s => s.items.length > 0) as section (section.category.id)}
-            <CategorySection {section} type="income" {month} onTogglePaid={handleToggleIncomePaid} on:refresh={() => detailedMonth.refresh()} />
-          {/each}
-        {/if}
-        
-        <!-- Income Summary -->
-        <div class="section-summary">
-          <SectionTally tally={$detailedMonthData.tallies.income} type="income" label="Regular Income" />
-          {#if $detailedMonthData.tallies.adhocIncome.actual > 0}
-            <SectionTally tally={$detailedMonthData.tallies.adhocIncome} type="income" label="Ad-hoc" />
-          {/if}
-          <SectionTally tally={$detailedMonthData.tallies.totalIncome} type="income" label="Total Income" />
-        </div>
-      </section>
+      </div>
     </div>
-    
-    <!-- Summary Footer with Leftover Calculation -->
-    <SummaryFooter 
-      breakdown={$detailedMonthData.leftoverBreakdown} 
-      bankBalancesMap={$detailedMonthData.bankBalances} 
-    />
   {/if}
 </div>
 
 <style>
   .detailed-view {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 20px;
+    transition: max-width 0.3s ease;
+  }
+  
+  .detailed-view.wide {
+    max-width: 100%;
   }
   
   .view-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
     gap: 16px;
   }
@@ -281,7 +357,29 @@
   .header-summary {
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 16px;
+  }
+  
+  .compact-toggle,
+  .width-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333355;
+    border-radius: 6px;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .compact-toggle:hover,
+  .width-toggle:hover {
+    background: rgba(36, 200, 219, 0.1);
+    border-color: #24c8db;
+    color: #24c8db;
   }
   
   .leftover-display {
@@ -327,10 +425,22 @@
     font-style: italic;
   }
   
+  /* Main layout with sidebar */
+  .detailed-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  
+  .main-content {
+    min-width: 0; /* Prevent grid blowout */
+  }
+  
   .sections-container {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 24px;
   }
   
   .section {
@@ -388,18 +498,69 @@
     padding: 40px 20px;
   }
   
-  .section-summary {
-    margin-top: 20px;
-    padding-top: 16px;
-    border-top: 1px solid #333355;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  /* Responsive: stack on smaller screens */
+  @media (max-width: 900px) {
+    .detailed-layout {
+      grid-template-columns: 1fr;
+    }
   }
   
-  @media (min-width: 1024px) {
+  @media (min-width: 1200px) {
     .sections-container {
       grid-template-columns: 1fr 1fr;
     }
+  }
+  
+  /* Compact mode styles */
+  .detailed-view.compact {
+    padding: 12px;
+  }
+  
+  .detailed-view.compact .view-header {
+    margin-bottom: 16px;
+    gap: 8px;
+  }
+  
+  .detailed-view.compact .view-header h1 {
+    font-size: 1.25rem;
+  }
+  
+  .detailed-view.compact .nav-arrow {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .detailed-view.compact .leftover-display {
+    padding: 8px 12px;
+  }
+  
+  .detailed-view.compact .leftover-value {
+    font-size: 1.1rem;
+  }
+  
+  .detailed-view.compact .detailed-layout {
+    gap: 16px;
+  }
+  
+  .detailed-view.compact .sections-container {
+    gap: 16px;
+  }
+  
+  .detailed-view.compact .section {
+    padding: 12px;
+    border-radius: 10px;
+  }
+  
+  .detailed-view.compact .section-header {
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+  
+  .detailed-view.compact .section-header h2 {
+    font-size: 1rem;
+  }
+  
+  .detailed-view.compact .empty-text {
+    padding: 20px 12px;
   }
 </style>

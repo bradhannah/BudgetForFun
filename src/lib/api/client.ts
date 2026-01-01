@@ -1,13 +1,16 @@
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   if (import.meta.env.DEV) {
     return ''; // Use relative URL in dev (proxied by Vite)
   }
   return import.meta.env.VITE_API_URL || 'http://localhost:3000';
 };
 
+// Helper to build full API URL
+export const apiUrl = (path: string) => `${getBaseUrl()}${path}`;
+
 export const apiClient = {
   async get(path: string) {
-    const response = await fetch(`${getBaseUrl()}${path}`);
+    const response = await fetch(apiUrl(path));
     if (!response.ok) {
       throw new Error(`GET ${path} failed: ${response.statusText}`);
     }
@@ -15,7 +18,7 @@ export const apiClient = {
   },
 
   async post(path: string, body: unknown) {
-    const response = await fetch(`${getBaseUrl()}${path}`, {
+    const response = await fetch(apiUrl(path), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -30,7 +33,7 @@ export const apiClient = {
   },
 
   async put(path: string, id: string, body: unknown) {
-    const response = await fetch(`${getBaseUrl()}${path}/${id}`, {
+    const response = await fetch(apiUrl(`${path}/${id}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -43,9 +46,24 @@ export const apiClient = {
     }
     return response.json();
   },
+  
+  // Generic PUT for paths that don't follow the /{id} pattern
+  async putPath(path: string, body: unknown) {
+    const response = await fetch(apiUrl(path), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      const message = error.message || error.error || `PUT ${path} failed: ${response.statusText}`;
+      throw new Error(message);
+    }
+    return response.json();
+  },
 
   async delete(path: string, id: string) {
-    const response = await fetch(`${getBaseUrl()}${path}/${id}`, {
+    const response = await fetch(apiUrl(`${path}/${id}`), {
       method: 'DELETE'
     });
     if (!response.ok && response.status !== 204) {

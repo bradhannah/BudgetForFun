@@ -157,6 +157,7 @@ export class AdhocServiceImpl implements AdhocService {
       payments: [],
       is_default: false,
       is_paid: !!data.date, // Paid if date provided
+      is_closed: !!data.date, // Closed if date provided
       is_adhoc: true,
       due_date: undefined,
       name: data.name.trim(),
@@ -316,8 +317,10 @@ export class AdhocServiceImpl implements AdhocService {
       amount: data.amount,
       expected_amount: 0, // Ad-hoc items have no expected amount
       actual_amount: data.amount,
+      payments: [],
       is_default: false,
       is_paid: !!data.date, // Received if date provided
+      is_closed: !!data.date, // Closed if date provided
       is_adhoc: true,
       due_date: undefined,
       name: data.name.trim(),

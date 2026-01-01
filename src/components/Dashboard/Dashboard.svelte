@@ -2,21 +2,13 @@
   import { onMount } from 'svelte';
   import MonthSelector from './MonthSelector.svelte';
   import LeftoverCard from './LeftoverCard.svelte';
-  import SummaryCards from './SummaryCards.svelte';
-  import PaymentSourcesCard from './PaymentSourcesCard.svelte';
-  import ExpensesCard from './ExpensesCard.svelte';
-  import BillsCard from './BillsCard.svelte';
-  import IncomesCard from './IncomesCard.svelte';
-  import { currentMonth } from '../../stores/ui';
+  import AccountBalancesCard from '../shared/AccountBalancesCard.svelte';
+  import CollapsibleSummarySection from './CollapsibleSummarySection.svelte';
+  import { currentMonth, wideMode } from '../../stores/ui';
   import { 
     monthsStore, 
     monthlyLoading, 
     leftover, 
-    totalIncome, 
-    totalExpenses, 
-    netWorth,
-    totalCash,
-    totalCreditDebt,
     billInstances,
     incomeInstances,
     variableExpenses,
@@ -55,44 +47,83 @@
     }
   }
   
-  // Computed totals
-  $: billsTotal = $billInstances.reduce((sum, bill) => sum + bill.amount, 0);
-  $: incomeTotal = $incomeInstances.reduce((sum, income) => sum + income.amount, 0);
-  $: expensesTotal = $variableExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  // Transform bill instances for CollapsibleSummarySection
+  $: billItems = $billInstances.map(bill => ({
+    id: bill.id,
+    name: bill.name,
+    expected: bill.amount,
+    actual: bill.is_paid ? bill.amount : 0,
+    isPaid: bill.is_paid ?? false
+  }));
+  
+  // Transform income instances for CollapsibleSummarySection
+  $: incomeItems = $incomeInstances.map(income => ({
+    id: income.id,
+    name: income.name,
+    expected: income.amount,
+    actual: income.is_paid ? income.amount : 0,
+    isPaid: income.is_paid ?? false
+  }));
+  
+  // Transform variable expenses for CollapsibleSummarySection
+  // Variable expenses are always "actual" only - no expected
+  $: expenseItems = $variableExpenses.map(expense => ({
+    id: expense.id,
+    name: expense.name,
+    expected: 0,
+    actual: expense.amount,
+    isPaid: true // Expenses are always "spent"
+  }));
+  
+  // Toggle width mode
+  function toggleWideMode() {
+    wideMode.toggle();
+  }
 </script>
 
-<div class="dashboard">
+<div class="dashboard" class:wide={$wideMode}>
   <header class="dashboard-header">
     <div class="header-left">
       <h1>Dashboard</h1>
-      {#if $currentMonth}
-        <a href="/month/{$currentMonth}" class="view-details-link">
-          View Details
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </a>
-      {/if}
     </div>
-    <MonthSelector />
+    <div class="header-right">
+      <button 
+        class="width-toggle" 
+        on:click={toggleWideMode}
+        title={$wideMode ? 'Normal width' : 'Wide mode'}
+      >
+        {#if $wideMode}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M9 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M15 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 9L9 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 9L15 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        {:else}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M4 4H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M4 20H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M16 4H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M16 20H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M4 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M20 4V20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M9 12L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 12L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 12L12 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        {/if}
+      </button>
+      <MonthSelector />
+    </div>
   </header>
   
   <main class="dashboard-content">
-    <section class="leftover-section">
-      <LeftoverCard leftover={$leftover} loading={$monthlyLoading} />
-    </section>
-    
-    <section class="summary-section">
-      <SummaryCards 
-        totalIncome={$totalIncome} 
-        totalExpenses={$totalExpenses} 
-        netWorth={$netWorth}
-        loading={$monthlyLoading}
-      />
-    </section>
-    
-    <section class="payment-sources-section">
-      <PaymentSourcesCard
+    <!-- Account Balances - Top, Editable -->
+    <section class="balances-section">
+      <AccountBalancesCard
         paymentSources={$paymentSources}
         bankBalances={$bankBalances}
         month={$currentMonth}
@@ -101,34 +132,32 @@
       />
     </section>
     
-    <section class="breakdown-section">
-      <div class="breakdown-grid">
-        <BillsCard
-          bills={$billInstances}
-          month={$currentMonth}
-          loading={$monthlyLoading}
-          total={billsTotal}
-          on:refresh={handleRefresh}
-        />
-        
-        <IncomesCard
-          incomes={$incomeInstances}
-          month={$currentMonth}
-          loading={$monthlyLoading}
-          total={incomeTotal}
-          on:refresh={handleRefresh}
-        />
-      </div>
+    <!-- Leftover Card -->
+    <section class="leftover-section">
+      <LeftoverCard leftover={$leftover} loading={$monthlyLoading} />
     </section>
     
-    <section class="expenses-section">
-      <ExpensesCard 
-        expenses={$variableExpenses}
-        month={$currentMonth}
-        loading={$monthlyLoading}
-        total={expensesTotal}
-        paymentSources={$paymentSources}
-        on:refresh={handleRefresh}
+    <!-- Collapsible Sections - All collapsed by default, read-only -->
+    <section class="summary-sections">
+      <CollapsibleSummarySection
+        title="Income"
+        items={incomeItems}
+        type="income"
+        expanded={false}
+      />
+      
+      <CollapsibleSummarySection
+        title="Bills"
+        items={billItems}
+        type="bills"
+        expanded={false}
+      />
+      
+      <CollapsibleSummarySection
+        title="Variable Expenses"
+        items={expenseItems}
+        type="expenses"
+        expanded={false}
       />
     </section>
   </main>
@@ -139,13 +168,18 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 24px;
+    transition: max-width 0.3s ease;
+  }
+  
+  .dashboard.wide {
+    max-width: 100%;
   }
   
   .dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
     gap: 16px;
   }
@@ -163,40 +197,42 @@
     gap: 16px;
   }
   
-  .view-details-link {
-    display: inline-flex;
+  .header-right {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    background: rgba(36, 200, 219, 0.1);
-    border: 1px solid rgba(36, 200, 219, 0.3);
-    border-radius: 6px;
-    color: #24c8db;
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
+    gap: 12px;
+  }
+  
+  .width-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333355;
+    border-radius: 8px;
+    color: #888;
+    cursor: pointer;
     transition: all 0.2s;
   }
   
-  .view-details-link:hover {
-    background: rgba(36, 200, 219, 0.2);
+  .width-toggle:hover {
+    background: rgba(36, 200, 219, 0.1);
     border-color: #24c8db;
+    color: #24c8db;
   }
   
   .dashboard-content {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-  }
-  
-  .breakdown-section {
-    margin-top: 8px;
-  }
-  
-  .breakdown-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 20px;
+  }
+  
+  .summary-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
   
   @media (max-width: 768px) {
@@ -207,6 +243,11 @@
     .dashboard-header {
       flex-direction: column;
       align-items: flex-start;
+    }
+    
+    .header-right {
+      width: 100%;
+      justify-content: space-between;
     }
   }
 </style>

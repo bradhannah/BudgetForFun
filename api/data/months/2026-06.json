@@ -10,6 +10,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -23,6 +24,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -36,6 +38,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -49,6 +52,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -62,6 +66,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -75,6 +80,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -87,8 +93,10 @@
       "month": "2026-06",
       "amount": 1112222,
       "expected_amount": 1112222,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -99,8 +107,10 @@
       "month": "2026-06",
       "amount": 866667,
       "expected_amount": 866667,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -111,8 +121,10 @@
       "month": "2026-06",
       "amount": 7222,
       "expected_amount": 7222,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -123,8 +135,10 @@
       "month": "2026-06",
       "amount": 555,
       "expected_amount": 555,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -135,8 +149,10 @@
       "month": "2026-06",
       "amount": 8888,
       "expected_amount": 8888,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"
@@ -147,8 +163,10 @@
       "month": "2026-06",
       "amount": 11111,
       "expected_amount": 11111,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:14.972Z",
       "updated_at": "2025-12-31T16:14:14.972Z"

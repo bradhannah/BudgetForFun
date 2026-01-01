@@ -1,19 +1,26 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { undoStore, canUndo, undoLoading } from '../stores/undo';
   import { addToast } from '../stores/toast';
   import { apiClient } from '../lib/api/client';
+  import { currentMonth, goToCurrentMonth, getCurrentMonth } from '../stores/ui';
   
   $: currentPath = $page.url.pathname;
+  
+  // Check if we're on the details page (any month)
+  $: isDetailsActive = currentPath.startsWith('/month/');
   
   let backupLoading = false;
   let fileInput: HTMLInputElement | null = null;
   
-  const navItems = [
-    { path: '/', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/setup', label: 'Setup', icon: 'settings' }
-  ];
+  // Navigate to today's month
+  function handleTodayClick() {
+    goToCurrentMonth();
+    const todayMonth = getCurrentMonth();
+    goto(`/month/${todayMonth}`);
+  }
   
   // Load undo state on mount
   onMount(() => {
@@ -122,34 +129,78 @@
 
 <nav class="sidebar">
   <div class="sidebar-header">
-    <h2>BudgetForFun</h2>
+    <div class="header-row">
+      <h2>BudgetForFun</h2>
+    </div>
+    <div class="header-actions">
+      <button 
+        class="today-button"
+        on:click={handleTodayClick}
+        title="Go to current month"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+          <path d="M16 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M8 2V6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M3 10H21" stroke="currentColor" stroke-width="2"/>
+          <circle cx="12" cy="16" r="2" fill="currentColor"/>
+        </svg>
+        <span>Today</span>
+      </button>
+    </div>
   </div>
   
+  <!-- Main navigation -->
   <ul class="nav-list">
-    {#each navItems as item}
-      <li>
-        <a 
-          href={item.path} 
-          class="nav-item"
-          class:active={currentPath === item.path}
-        >
-          {#if item.icon === 'dashboard'}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
-              <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
-              <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
-              <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
-            </svg>
-          {:else if item.icon === 'settings'}
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/>
-            </svg>
-          {/if}
-          <span>{item.label}</span>
-        </a>
-      </li>
-    {/each}
+    <li>
+      <a 
+        href="/" 
+        class="nav-item"
+        class:active={currentPath === '/'}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+          <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+          <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+          <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+    </li>
+    <li>
+      <a 
+        href="/month/{$currentMonth}" 
+        class="nav-item"
+        class:active={isDetailsActive}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <rect x="9" y="3" width="6" height="4" rx="1" stroke="currentColor" stroke-width="2"/>
+          <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M9 16H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Details</span>
+      </a>
+    </li>
+  </ul>
+  
+  <!-- Separator and Setup at bottom of main nav area -->
+  <div class="nav-separator"></div>
+  
+  <ul class="nav-list bottom-nav">
+    <li>
+      <a 
+        href="/setup" 
+        class="nav-item"
+        class:active={currentPath === '/setup'}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>Setup</span>
+      </a>
+    </li>
   </ul>
   
   <!-- Hidden file input for import -->
@@ -161,7 +212,7 @@
     style="display: none;"
   />
   
-  <!-- Undo Button -->
+  <!-- Footer with Undo and Backup buttons -->
   <div class="sidebar-footer">
     <button 
       class="undo-button"
@@ -229,8 +280,15 @@
   }
   
   .sidebar-header {
-    padding: 0 20px 20px;
+    padding: 0 16px 16px;
     border-bottom: 1px solid #333355;
+  }
+  
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
   }
   
   .sidebar-header h2 {
@@ -240,6 +298,38 @@
     margin: 0;
   }
   
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+  
+  .today-button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(36, 200, 219, 0.1);
+    border: 1px solid rgba(36, 200, 219, 0.3);
+    border-radius: 6px;
+    color: #24c8db;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .today-button:hover {
+    background: rgba(36, 200, 219, 0.2);
+    border-color: #24c8db;
+  }
+  
+  .today-button svg {
+    flex-shrink: 0;
+  }
+  
   .nav-list {
     list-style: none;
     padding: 12px;
@@ -247,6 +337,15 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+  
+  .nav-separator {
+    margin: 0 12px;
+    border-top: 1px solid #333355;
+  }
+  
+  .bottom-nav {
+    padding-top: 12px;
   }
   
   .nav-item {
@@ -275,7 +374,7 @@
     flex-shrink: 0;
   }
   
-  /* Undo button */
+  /* Footer with undo and backup */
   .sidebar-footer {
     margin-top: auto;
     padding: 12px;

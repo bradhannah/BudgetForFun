@@ -1,7 +1,7 @@
 // Undo Store - Manages undo stack state
 
 import { writable, derived } from 'svelte/store';
-import { apiClient } from '$lib/api/client';
+import { apiClient, apiUrl } from '$lib/api/client';
 
 export interface UndoEntry {
   id: string;
@@ -36,7 +36,7 @@ function createUndoStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        const response = await fetch('/api/undo');
+        const response = await fetch(apiUrl('/api/undo'));
         if (!response.ok) {
           throw new Error('Failed to load undo stack');
         }
@@ -61,7 +61,7 @@ function createUndoStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        const response = await fetch('/api/undo', {
+        const response = await fetch(apiUrl('/api/undo'), {
           method: 'POST'
         });
         
@@ -93,7 +93,7 @@ function createUndoStore() {
       update(state => ({ ...state, loading: true, error: null }));
 
       try {
-        const response = await fetch('/api/undo', {
+        const response = await fetch(apiUrl('/api/undo'), {
           method: 'DELETE'
         });
         

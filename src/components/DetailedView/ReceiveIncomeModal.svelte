@@ -1,33 +1,32 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
-  import { apiClient } from '$lib/api/client';
-  import { categories, loadCategories } from '../../stores/categories';
+  import { createEventDispatcher } from 'svelte';
   import { success, error as showError } from '../../stores/toast';
   
   export let open = false;
   export let month: string;
-  export let type: 'bill' | 'income' = 'bill';
+  export let incomeInstanceId: string;
+  export let incomeName: string = '';
+  export let expectedAmount: number = 0;
   
   const dispatch = createEventDispatcher();
   
-  let name = '';
   let amount = '';
-  let categoryId = '';
   let saving = false;
   let error = '';
   
-  // Filter categories by type
-  $: filteredCategories = $categories.filter(c => {
-    // Show categories matching type, or 'Ad-hoc' category
-    const catType = (c as any).type;
-    return catType === type || c.name === 'Ad-hoc';
-  });
+  $: if (open && !amount) {
+    // Default to expected amount when modal opens
+    amount = (expectedAmount / 100).toFixed(2);
+  }
   
-  onMount(async () => {
-    if ($categories.length === 0) {
-      await loadCategories();
-    }
-  });
+  function formatCurrency(cents: number): string {
+    const dollars = cents / 100;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2
+    }).format(dollars);
+  }
   
   function parseDollarsToCents(value: string): number {
     const dollars = parseFloat(value.replace(/[^0-9.-]/g, ''));
@@ -41,20 +40,17 @@
   }
   
   function resetForm() {
-    name = '';
     amount = '';
-    categoryId = '';
     error = '';
   }
   
+  function useExpected() {
+    amount = (expectedAmount / 100).toFixed(2);
+  }
+  
   async function handleSubmit() {
-    // Validation
-    if (!name.trim()) {
-      error = 'Name is required';
-      return;
-    }
-    
     const amountCents = parseDollarsToCents(amount);
+    
     if (amountCents <= 0) {
       error = 'Please enter a valid amount';
       return;
@@ -64,26 +60,22 @@
     error = '';
     
     try {
-      const endpoint = type === 'bill' 
-        ? `/api/months/${month}/adhoc/bills`
-        : `/api/months/${month}/adhoc/incomes`;
+      const response = await fetch(`/api/months/${month}/incomes/${incomeInstanceId}/paid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actualAmount: amountCents })
+      });
       
-      const payload: any = {
-        name: name.trim(),
-        amount: amountCents
-      };
-      
-      if (categoryId) {
-        payload.category_id = categoryId;
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to mark income as received');
       }
       
-      await apiClient.post(endpoint, payload);
-      
-      success(`Ad-hoc ${type} added`);
-      dispatch('created');
+      success('Income received');
+      dispatch('received');
       handleClose();
     } catch (err) {
-      error = err instanceof Error ? err.message : `Failed to add ad-hoc ${type}`;
+      error = err instanceof Error ? err.message : 'Failed to mark as received';
       showError(error);
     } finally {
       saving = false;
@@ -109,7 +101,7 @@
   <div class="drawer-backdrop" on:click={handleBackdropClick}>
     <div class="drawer">
       <header class="drawer-header">
-        <h3>Add Ad-hoc {type === 'bill' ? 'Bill' : 'Income'}</h3>
+        <h3>Mark Income Received</h3>
         <button class="close-btn" on:click={handleClose}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -118,25 +110,16 @@
       </header>
       
       <div class="drawer-content">
-        <p class="description">
-          Add a one-time {type} for this month only. You can convert it to a recurring {type} later.
-        </p>
+        <div class="income-info">
+          <span class="income-name">{incomeName}</span>
+          <div class="income-details">
+            <span>Expected: {formatCurrency(expectedAmount)}</span>
+          </div>
+        </div>
         
         <form on:submit|preventDefault={handleSubmit}>
           <div class="form-group">
-            <label for="name">Name</label>
-            <input
-              id="name"
-              type="text"
-              bind:value={name}
-              placeholder={type === 'bill' ? 'e.g., Car Repair' : 'e.g., Bonus'}
-              disabled={saving}
-              class:error={!!error && !name.trim()}
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="amount">Amount</label>
+            <label for="amount">Actual Amount Received</label>
             <div class="amount-input-group">
               <span class="prefix">$</span>
               <input
@@ -145,23 +128,12 @@
                 bind:value={amount}
                 placeholder="0.00"
                 disabled={saving}
-                class:error={!!error && parseDollarsToCents(amount) <= 0}
+                class:error={!!error}
               />
+              <button type="button" class="suggest-btn" on:click={useExpected}>
+                Use expected
+              </button>
             </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="category">Category (Optional)</label>
-            <select
-              id="category"
-              bind:value={categoryId}
-              disabled={saving}
-            >
-              <option value="">-- Select Category --</option>
-              {#each filteredCategories as category}
-                <option value={category.id}>{category.name}</option>
-              {/each}
-            </select>
           </div>
           
           {#if error}
@@ -173,7 +145,7 @@
               Cancel
             </button>
             <button type="submit" class="submit-btn" disabled={saving}>
-              {saving ? 'Adding...' : `Add ${type === 'bill' ? 'Bill' : 'Income'}`}
+              {saving ? 'Saving...' : 'Mark Received'}
             </button>
           </div>
         </form>
@@ -252,10 +224,26 @@
     overflow-y: auto;
   }
   
-  .description {
-    color: #888;
-    font-size: 0.875rem;
+  .income-info {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    padding: 16px;
     margin-bottom: 24px;
+  }
+  
+  .income-name {
+    display: block;
+    font-weight: 600;
+    color: #e4e4e7;
+    margin-bottom: 8px;
+  }
+  
+  .income-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.875rem;
+    color: #888;
   }
   
   .form-group {
@@ -267,30 +255,6 @@
     font-size: 0.875rem;
     color: #888;
     margin-bottom: 8px;
-  }
-  
-  .form-group input[type="text"],
-  .form-group select {
-    width: 100%;
-    padding: 10px 12px;
-    background: #0f0f1a;
-    border: 1px solid #333355;
-    border-radius: 6px;
-    color: #e4e4e7;
-    font-size: 1rem;
-    height: 42px;
-    box-sizing: border-box;
-  }
-  
-  .form-group input:focus,
-  .form-group select:focus {
-    outline: none;
-    border-color: #24c8db;
-  }
-  
-  .form-group input.error,
-  .form-group select.error {
-    border-color: #f87171;
   }
   
   .amount-input-group {
@@ -321,6 +285,22 @@
   
   .amount-input-group input.error {
     border-color: #f87171;
+  }
+  
+  .suggest-btn {
+    padding: 8px 12px;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: 6px;
+    color: #4ade80;
+    font-size: 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  
+  .suggest-btn:hover {
+    background: rgba(74, 222, 128, 0.2);
   }
   
   .error-message {
@@ -357,7 +337,7 @@
   }
   
   .submit-btn {
-    background: #24c8db;
+    background: #4ade80;
     border: none;
     color: #000;
   }

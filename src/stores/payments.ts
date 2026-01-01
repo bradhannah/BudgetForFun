@@ -1,6 +1,6 @@
 // Payments Store - Manages partial payments operations
 import { writable } from 'svelte/store';
-import { apiClient } from '../lib/api/client';
+import { apiUrl } from '../lib/api/client';
 
 export interface Payment {
   id: string;
@@ -30,7 +30,7 @@ function createPaymentsStore() {
         const payload: { amount: number; date?: string } = { amount };
         if (date) payload.date = date;
         
-        const response = await fetch(`http://localhost:3000/api/months/${month}/bills/${billInstanceId}/payments`, {
+        const response = await fetch(apiUrl(`/api/months/${month}/bills/${billInstanceId}/payments`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -53,7 +53,7 @@ function createPaymentsStore() {
       update(state => ({ ...state, loading: true, error: null }));
       
       try {
-        const response = await fetch(`http://localhost:3000/api/months/${month}/bills/${billInstanceId}/payments/${paymentId}`, {
+        const response = await fetch(apiUrl(`/api/months/${month}/bills/${billInstanceId}/payments/${paymentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount, date })
@@ -76,7 +76,7 @@ function createPaymentsStore() {
       update(state => ({ ...state, loading: true, error: null }));
       
       try {
-        const response = await fetch(`http://localhost:3000/api/months/${month}/bills/${billInstanceId}/payments/${paymentId}`, {
+        const response = await fetch(apiUrl(`/api/months/${month}/bills/${billInstanceId}/payments/${paymentId}`), {
           method: 'DELETE'
         });
         

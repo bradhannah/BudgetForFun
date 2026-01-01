@@ -168,8 +168,10 @@ export class DetailedViewServiceImpl implements DetailedViewService {
         total_paid: totalPaid,
         remaining,
         is_paid: instance.is_paid,
+        is_closed: instance.is_closed ?? instance.is_paid ?? false,
         is_adhoc: instance.is_adhoc,
         due_date: dueDate,
+        closed_date: instance.closed_date ?? null,
         is_overdue: overdueStatus,
         days_overdue: daysOverdueValue,
         payment_source: paymentSource ? { id: paymentSource.id, name: paymentSource.name } : null,
@@ -195,6 +197,11 @@ export class DetailedViewServiceImpl implements DetailedViewService {
       
       // Determine if overdue (for income, this means "expected but not received")
       const overdueStatus = isOverdue(dueDate || undefined, instance.is_paid);
+      
+      // Calculate total received from payments
+      const payments = instance.payments || [];
+      const totalReceived = payments.reduce((sum, p) => sum + p.amount, 0) || (instance.actual_amount ?? 0);
+      const remaining = Math.max(0, instance.expected_amount - totalReceived);
 
       return {
         id: instance.id,
@@ -202,9 +209,14 @@ export class DetailedViewServiceImpl implements DetailedViewService {
         name: instance.name || income?.name || 'Unknown Income',
         expected_amount: instance.expected_amount,
         actual_amount: instance.actual_amount ?? null,
+        payments,
+        total_received: totalReceived,
+        remaining,
         is_paid: instance.is_paid,
+        is_closed: instance.is_closed ?? instance.is_paid ?? false,
         is_adhoc: instance.is_adhoc,
         due_date: dueDate,
+        closed_date: instance.closed_date ?? null,
         is_overdue: overdueStatus,
         payment_source: paymentSource ? { id: paymentSource.id, name: paymentSource.name } : null,
         category_id: instance.category_id || income?.category_id || ''

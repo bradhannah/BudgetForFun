@@ -149,6 +149,8 @@
     background: #0f0f0f;
     color: #fff;
     font-size: 15px;
+    height: 46px;
+    box-sizing: border-box;
   }
 
   input:focus, select:focus {

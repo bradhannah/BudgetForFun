@@ -84,9 +84,11 @@ interface BillInstance {
   actual_amount?: number;     // User-entered actual (for non-partial)
   payments: Payment[];        // Array of partial payments
   is_default: boolean;
-  is_paid: boolean;
+  is_paid: boolean;           // DEPRECATED: use is_closed instead
+  is_closed: boolean;         // True = no more transactions expected
   is_adhoc: boolean;          // True for one-time ad-hoc items
   due_date?: string;          // Calculated from Bill.due_day + month
+  closed_date?: string;       // ISO date when closed (YYYY-MM-DD)
   name?: string;              // For ad-hoc items (bill_id is null)
   category_id?: string;       // For ad-hoc items (no bill reference)
   payment_source_id?: string; // For ad-hoc items (no bill reference)
@@ -101,10 +103,13 @@ interface IncomeInstance {
   amount: number;             // DEPRECATED: use expected_amount
   expected_amount: number;    // From default income
   actual_amount?: number;     // User-entered actual
+  payments: Payment[];        // Array of partial receipts (transactions)
   is_default: boolean;
-  is_paid: boolean;           // Represents "received"
+  is_paid: boolean;           // DEPRECATED: use is_closed instead
+  is_closed: boolean;         // True = no more transactions expected
   is_adhoc: boolean;          // True for one-time ad-hoc items
   due_date?: string;          // Calculated from Income.due_day + month
+  closed_date?: string;       // ISO date when closed (YYYY-MM-DD)
   name?: string;              // For ad-hoc items (income_id is null)
   category_id?: string;       // For ad-hoc items (no income reference)
   payment_source_id?: string; // For ad-hoc items (no income reference)
@@ -219,9 +224,11 @@ interface BillInstanceDetailed {
   payments: Payment[];
   total_paid: number;
   remaining: number;
-  is_paid: boolean;
+  is_paid: boolean;           // DEPRECATED: use is_closed instead
+  is_closed: boolean;         // True = no more transactions expected
   is_adhoc: boolean;
   due_date: string | null;
+  closed_date: string | null; // ISO date when closed
   is_overdue: boolean;
   days_overdue: number | null;
   payment_source: {
@@ -237,9 +244,14 @@ interface IncomeInstanceDetailed {
   name: string;
   expected_amount: number;
   actual_amount: number | null;
-  is_paid: boolean;
+  payments: Payment[];        // Array of partial receipts (transactions)
+  total_received: number;     // Sum of all payments
+  remaining: number;          // expected - total_received
+  is_paid: boolean;           // DEPRECATED: use is_closed instead
+  is_closed: boolean;         // True = no more transactions expected
   is_adhoc: boolean;
   due_date: string | null;
+  closed_date: string | null; // ISO date when closed
   is_overdue: boolean;
   payment_source: {
     id: string;

@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { IncomeInstance } from '../../stores/months';
   import { success, error as showError } from '../../stores/toast';
+  import { apiUrl } from '$lib/api/client';
   
   export let incomes: IncomeInstance[] = [];
   export let month: string;
@@ -53,7 +54,7 @@
     error = '';
     
     try {
-      const response = await fetch(`http://localhost:3000/api/months/${month}/incomes/${id}`, {
+      const response = await fetch(apiUrl(`/api/months/${month}/incomes/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: amountCents })
@@ -80,7 +81,7 @@
     error = '';
     
     try {
-      const response = await fetch(`http://localhost:3000/api/months/${month}/incomes/${id}/reset`, {
+      const response = await fetch(apiUrl(`/api/months/${month}/incomes/${id}/reset`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -105,7 +106,7 @@
     error = '';
     
     try {
-      const response = await fetch(`http://localhost:3000/api/months/${month}/incomes/${id}/paid`, {
+      const response = await fetch(apiUrl(`/api/months/${month}/incomes/${id}/paid`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });

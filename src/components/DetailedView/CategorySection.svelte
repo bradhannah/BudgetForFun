@@ -8,6 +8,7 @@
   export let section: CategorySectionType;
   export let type: 'bills' | 'income' = 'bills';
   export let month: string = '';
+  export let compactMode: boolean = false;
   export let onTogglePaid: ((id: string) => void) | null = null;
   
   const dispatch = createEventDispatcher();
@@ -45,7 +46,7 @@
   }
 </script>
 
-<div class="category-section">
+<div class="category-section" class:compact={compactMode}>
   <div class="category-header" style="border-left-color: {section.category.color}">
     <div class="category-title">
       <span class="category-color" style="background-color: {section.category.color}"></span>
@@ -73,9 +74,9 @@
   <div class="category-items">
     {#each section.items as item (item.id)}
       {#if type === 'bills' && isBillInstance(item)}
-        <BillRow bill={item} {month} {onTogglePaid} on:refresh={handleRefresh} />
+        <BillRow bill={item} {month} {compactMode} {onTogglePaid} on:refresh={handleRefresh} />
       {:else if type === 'income' && !isBillInstance(item)}
-        <IncomeRow income={item} {month} {onTogglePaid} on:refresh={handleRefresh} />
+        <IncomeRow income={item} {month} {compactMode} {onTogglePaid} on:refresh={handleRefresh} />
       {/if}
     {/each}
   </div>
@@ -201,5 +202,47 @@
       width: 100%;
       justify-content: space-between;
     }
+  }
+  
+  /* Compact mode styles */
+  .category-section.compact {
+    margin-bottom: 12px;
+  }
+  
+  .category-section.compact .category-header {
+    padding: 8px 10px;
+    margin-bottom: 4px;
+  }
+  
+  .category-section.compact .category-title h4 {
+    font-size: 0.9rem;
+  }
+  
+  .category-section.compact .category-color {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .category-section.compact .item-count {
+    font-size: 0.65rem;
+  }
+  
+  .category-section.compact .add-adhoc-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 0.85rem;
+  }
+  
+  .category-section.compact .subtotal-label {
+    font-size: 0.55rem;
+  }
+  
+  .category-section.compact .subtotal-value {
+    font-size: 0.8rem;
+  }
+  
+  .category-section.compact .category-items {
+    gap: 2px;
+    padding-left: 2px;
   }
 </style>

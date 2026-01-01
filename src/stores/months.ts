@@ -2,6 +2,7 @@
 
 import { writable, derived } from 'svelte/store';
 import { currentMonth } from './ui';
+import { apiUrl } from '$lib/api/client';
 
 // Types for monthly data
 export interface BillInstance {
@@ -98,11 +99,11 @@ function createMonthsStore() {
 
       try {
         // Try to load existing month data
-        const response = await fetch(`/api/months/${month}`);
+        const response = await fetch(apiUrl(`/api/months/${month}`));
         
         if (response.status === 404) {
           // Month doesn't exist, generate it
-          const generateResponse = await fetch(`/api/months/${month}/generate`, {
+          const generateResponse = await fetch(apiUrl(`/api/months/${month}/generate`), {
             method: 'POST'
           });
 
@@ -120,7 +121,7 @@ function createMonthsStore() {
           throw new Error('Failed to load monthly data');
         } else {
           // Month exists - sync to add any missing bills/incomes
-          const syncResponse = await fetch(`/api/months/${month}/sync`, {
+          const syncResponse = await fetch(apiUrl(`/api/months/${month}/sync`), {
             method: 'POST'
           });
           
@@ -152,7 +153,7 @@ function createMonthsStore() {
 
     async refreshSummary(month: string): Promise<void> {
       try {
-        const response = await fetch(`/api/months/${month}/summary`);
+        const response = await fetch(apiUrl(`/api/months/${month}/summary`));
 
         if (response.ok) {
           const summary = await response.json();
@@ -171,7 +172,7 @@ function createMonthsStore() {
 
     async updateBankBalances(month: string, balances: Record<string, number>): Promise<void> {
       try {
-        const response = await fetch(`/api/months/${month}/bank-balances`, {
+        const response = await fetch(apiUrl(`/api/months/${month}/bank-balances`), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'

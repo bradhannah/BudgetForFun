@@ -7,6 +7,7 @@
       "month": "2025-12",
       "amount": 150000,
       "expected_amount": 150000,
+      "actual_amount": 150000,
       "payments": [
         {
           "id": "9562270c-7581-482a-b876-b6812a6a762a",
@@ -17,6 +18,7 @@
       ],
       "is_default": false,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:15:13.143Z",
       "updated_at": "2025-12-31T22:33:52.911Z"
@@ -30,6 +32,7 @@
       "payments": [],
       "is_default": false,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:15:13.143Z",
       "updated_at": "2025-12-31T22:17:43.398Z"
@@ -43,6 +46,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:15:13.143Z",
       "updated_at": "2025-12-31T14:15:13.143Z"
@@ -56,6 +60,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:15:13.143Z",
       "updated_at": "2025-12-31T14:15:13.143Z"
@@ -66,9 +71,11 @@
       "month": "2025-12",
       "amount": 100000,
       "expected_amount": 100000,
+      "actual_amount": 100000,
       "payments": [],
       "is_default": true,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:19:56.905Z",
       "updated_at": "2025-12-31T22:34:01.590Z"
@@ -79,6 +86,7 @@
       "month": "2025-12",
       "amount": 222,
       "expected_amount": 222,
+      "actual_amount": 222,
       "payments": [
         {
           "id": "9e22e2be-50ba-4927-ac89-4bd5bca4dc72",
@@ -95,6 +103,7 @@
       ],
       "is_default": false,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:20:39.788Z",
       "updated_at": "2025-12-31T22:07:08.574Z"
@@ -109,6 +118,7 @@
       "payments": [],
       "is_default": false,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": true,
       "name": "Car Repair",
       "category_id": "1597bcda-dd74-47b1-a7e8-9e454afd58f2",
@@ -125,6 +135,7 @@
       "payments": [],
       "is_default": false,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": true,
       "name": "Insurance Payment",
       "category_id": "1597bcda-dd74-47b1-a7e8-9e454afd58f2",
@@ -141,6 +152,7 @@
       "payments": [],
       "is_default": false,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": true,
       "name": "Insurance Payment",
       "category_id": "1597bcda-dd74-47b1-a7e8-9e454afd58f2",
@@ -151,14 +163,15 @@
       "id": "0f84a85b-629c-40cd-aff9-4dac01caf2bf",
       "bill_id": "1cea7e8d-a233-48fc-bc81",
       "month": "2025-12",
-      "amount": 2500,
-      "expected_amount": 2500,
+      "amount": 3000,
+      "expected_amount": 3000,
       "payments": [],
-      "is_default": true,
+      "is_default": false,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T23:07:47.187Z",
-      "updated_at": "2025-12-31T23:07:47.187Z"
+      "updated_at": "2026-01-01T19:13:10.536Z"
     }
   ],
   "income_instances": [
@@ -168,8 +181,10 @@
       "month": "2025-12",
       "amount": 1112222,
       "expected_amount": 1112222,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-30T18:08:31.732Z",
       "updated_at": "2025-12-30T18:08:31.732Z"
@@ -178,13 +193,16 @@
       "id": "f0a99ce0-4fcd-4601-8aba-8bcb116f4883",
       "income_id": "1e2fcfde-1d16-48f0-91dd-43ed",
       "month": "2025-12",
-      "amount": 866667,
+      "amount": 900000,
       "expected_amount": 866667,
-      "is_default": true,
-      "is_paid": false,
+      "actual_amount": 950000,
+      "payments": [],
+      "is_default": false,
+      "is_paid": true,
+      "is_closed": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:15:13.143Z",
-      "updated_at": "2025-12-31T14:15:13.143Z"
+      "updated_at": "2026-01-01T17:48:47.134Z"
     },
     {
       "id": "8c590aec-91c1-4baf-822d-bf1764589753",
@@ -192,11 +210,14 @@
       "month": "2025-12",
       "amount": 7222,
       "expected_amount": 7222,
+      "actual_amount": 7222,
+      "payments": [],
       "is_default": true,
-      "is_paid": false,
+      "is_paid": true,
+      "is_closed": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:15:13.143Z",
-      "updated_at": "2025-12-31T14:15:13.143Z"
+      "updated_at": "2026-01-01T17:30:01.853Z"
     },
     {
       "id": "80547f81-64ae-4af2-ba93-412ea577c84c",
@@ -204,8 +225,10 @@
       "month": "2025-12",
       "amount": 555,
       "expected_amount": 555,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:20:59.335Z",
       "updated_at": "2025-12-31T14:20:59.335Z"
@@ -216,11 +239,13 @@
       "month": "2025-12",
       "amount": 0,
       "expected_amount": 0,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T15:29:16.561Z",
-      "updated_at": "2025-12-31T15:29:16.561Z"
+      "updated_at": "2026-01-01T19:13:22.841Z"
     },
     {
       "id": "ecdcd0d7-93bf-4149-95d3-702f668c8e73",
@@ -228,8 +253,10 @@
       "month": "2025-12",
       "amount": 11111,
       "expected_amount": 11111,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:13:49.286Z",
       "updated_at": "2025-12-31T16:13:49.286Z"
@@ -241,8 +268,10 @@
       "amount": 200000,
       "expected_amount": 0,
       "actual_amount": 200000,
+      "payments": [],
       "is_default": false,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": true,
       "name": "Bonus Payment",
       "category_id": "d1456663-61bc-4c1a-bec6-7cd05dfb07c6",
@@ -256,8 +285,10 @@
       "amount": 75000,
       "expected_amount": 0,
       "actual_amount": 80000,
+      "payments": [],
       "is_default": false,
       "is_paid": true,
+      "is_closed": true,
       "is_adhoc": true,
       "name": "Freelance Gig",
       "category_id": "d1456663-61bc-4c1a-bec6-7cd05dfb07c6",
@@ -288,5 +319,5 @@
   "free_flowing_expenses": [],
   "bank_balances": {},
   "created_at": "2025-12-30T18:08:31.732Z",
-  "updated_at": "2026-01-01T00:40:08.194Z"
+  "updated_at": "2026-01-01T19:13:22.841Z"
 }

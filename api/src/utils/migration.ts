@@ -44,8 +44,10 @@ export function migrateBillInstance(instance: any): BillInstance {
     payments: instance.payments ?? [],
     is_default: instance.is_default ?? false,
     is_paid: instance.is_paid ?? false,
+    is_closed: instance.is_closed ?? instance.is_paid ?? false,
     is_adhoc: instance.is_adhoc ?? false,
     due_date: instance.due_date ?? undefined,
+    closed_date: instance.closed_date ?? undefined,
     name: instance.name ?? undefined,
     category_id: instance.category_id ?? undefined,
     payment_source_id: instance.payment_source_id ?? undefined,
@@ -66,10 +68,13 @@ export function migrateIncomeInstance(instance: any): IncomeInstance {
     amount: instance.amount ?? 0,
     expected_amount: instance.expected_amount ?? instance.amount ?? 0,
     actual_amount: instance.actual_amount ?? (instance.is_paid ? instance.amount : undefined),
+    payments: instance.payments ?? [],
     is_default: instance.is_default ?? false,
     is_paid: instance.is_paid ?? false,
+    is_closed: instance.is_closed ?? instance.is_paid ?? false,
     is_adhoc: instance.is_adhoc ?? false,
     due_date: instance.due_date ?? undefined,
+    closed_date: instance.closed_date ?? undefined,
     name: instance.name ?? undefined,
     category_id: instance.category_id ?? undefined,
     payment_source_id: instance.payment_source_id ?? undefined,
@@ -102,7 +107,8 @@ export function needsBillInstanceMigration(instance: any): boolean {
   return (
     instance.expected_amount === undefined ||
     instance.payments === undefined ||
-    instance.is_adhoc === undefined
+    instance.is_adhoc === undefined ||
+    instance.is_closed === undefined
   );
 }
 
@@ -112,7 +118,9 @@ export function needsBillInstanceMigration(instance: any): boolean {
 export function needsIncomeInstanceMigration(instance: any): boolean {
   return (
     instance.expected_amount === undefined ||
-    instance.is_adhoc === undefined
+    instance.is_adhoc === undefined ||
+    instance.payments === undefined ||
+    instance.is_closed === undefined
   );
 }
 

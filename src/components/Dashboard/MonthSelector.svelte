@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { currentMonth, currentMonthDisplay, goToPreviousMonth, goToNextMonth, goToCurrentMonth, goToMonth } from '../../stores/ui';
-  import { apiClient } from '../../lib/api/client';
+  import { apiClient, apiUrl } from '../../lib/api/client';
   
   interface MonthSummary {
     month: string;
@@ -29,7 +29,7 @@
   async function loadAvailableMonths() {
     try {
       isLoading = true;
-      const response = await fetch('http://localhost:3000/api/months');
+      const response = await fetch(apiUrl('/api/months'));
       if (response.ok) {
         const data = await response.json();
         availableMonths = data.months || [];

@@ -6,6 +6,19 @@
 import { serve } from 'bun';
 import { routes } from './src/routes';
 
+// Logging utility with timestamps
+function log(level: 'INFO' | 'ERROR' | 'WARN' | 'DEBUG', message: string, ...args: unknown[]) {
+  const timestamp = new Date().toISOString();
+  const prefix = `[${timestamp}] [${level}]`;
+  if (level === 'ERROR') {
+    console.error(prefix, message, ...args);
+  } else if (level === 'WARN') {
+    console.warn(prefix, message, ...args);
+  } else {
+    console.log(prefix, message, ...args);
+  }
+}
+
 const PORT = 3000;
 
 const CORS_HEADERS = {
@@ -244,7 +257,7 @@ const server = serve({
     const url = new URL(req.url);
     const path = url.pathname;
 
-    console.log(`Request: ${req.method} ${path}`);
+    log('INFO', `${req.method} ${path}`);
 
     // Handle OPTIONS preflight requests
     if (req.method === 'OPTIONS') {
@@ -264,7 +277,7 @@ const server = serve({
       
       if (pathMatches && req.method === definition.method) {
         try {
-          console.log(` -> Matched route: ${routePath} [${definition.method}]`);
+          log('DEBUG', `Matched route: ${routePath} [${definition.method}]`);
           const response = await definition.handler(req);
 
           // Add CORS headers to existing Response
@@ -278,7 +291,12 @@ const server = serve({
             headers,
           });
         } catch (error) {
-          console.error('Server error:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          log('ERROR', `Handler error: ${errorMessage}`);
+          if (errorStack) {
+            log('ERROR', `Stack trace:\n${errorStack}`);
+          }
           return corsResponse(
             {
               error: error instanceof Error ? error.message : 'Unknown error',
@@ -296,6 +314,6 @@ const server = serve({
   }
 });
 
-console.log(`Bun backend server running on http://localhost:${PORT}`);
-console.log(`Health check: http://localhost:${PORT}/health`);
-console.log(`API endpoints:`, routes.map(r => `${r.definition.method} ${r.path}`));
+log('INFO', `Bun backend server running on http://localhost:${PORT}`);
+log('INFO', `Health check: http://localhost:${PORT}/health`);
+log('INFO', `Registered ${routes.length} routes`);

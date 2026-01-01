@@ -8,9 +8,8 @@
   
   export let expenses: VariableExpense[] = [];
   export let month: string;
-  export let loading: boolean = false;
-  export let total: number = 0;
   export let paymentSources: PaymentSource[] = [];
+  export let compactMode: boolean = false;
   
   const dispatch = createEventDispatcher();
   
@@ -27,28 +26,8 @@
   let showDeleteConfirm = false;
   let expenseToDelete: VariableExpense | null = null;
   
-  function confirmDeleteExpense(expense: VariableExpense) {
-    expenseToDelete = expense;
-    showDeleteConfirm = true;
-  }
-  
-  function cancelDeleteExpense() {
-    showDeleteConfirm = false;
-    expenseToDelete = null;
-  }
-  
-  async function handleConfirmDelete() {
-    if (expenseToDelete) {
-      await deleteExpense(expenseToDelete.id);
-    }
-  }
-  
-  // Helper to get payment source name
-  function getPaymentSourceName(id: string | undefined): string | null {
-    if (!id) return null;
-    const source = paymentSources.find(ps => ps.id === id);
-    return source ? source.name : null;
-  }
+  // Calculate total
+  $: total = expenses.reduce((sum, e) => sum + e.amount, 0);
   
   function formatCurrency(cents: number): string {
     const dollars = cents / 100;
@@ -62,6 +41,12 @@
   function parseDollarsToCents(value: string): number {
     const dollars = parseFloat(value.replace(/[^0-9.-]/g, ''));
     return isNaN(dollars) ? 0 : Math.round(dollars * 100);
+  }
+  
+  function getPaymentSourceName(id: string | undefined): string | null {
+    if (!id) return null;
+    const source = paymentSources.find(ps => ps.id === id);
+    return source ? source.name : null;
   }
   
   function openAddForm() {
@@ -89,6 +74,22 @@
     amount = '';
     paymentSourceId = '';
     error = '';
+  }
+  
+  function confirmDeleteExpense(expense: VariableExpense) {
+    expenseToDelete = expense;
+    showDeleteConfirm = true;
+  }
+  
+  function cancelDeleteExpense() {
+    showDeleteConfirm = false;
+    expenseToDelete = null;
+  }
+  
+  async function handleConfirmDelete() {
+    if (expenseToDelete) {
+      await deleteExpense(expenseToDelete.id);
+    }
   }
   
   async function saveExpense() {
@@ -170,32 +171,50 @@
       dispatch('refresh');
       success('Expense deleted');
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Unknown error';
-      showError(error);
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showError(message);
+    }
+  }
+  
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      saveExpense();
+    } else if (event.key === 'Escape') {
+      cancelForm();
     }
   }
 </script>
 
-<div class="expenses-card">
-  <div class="card-header">
-    <div class="card-header-left">
-      <h3>Variable Expenses</h3>
-      {#if expenses.length > 0}
-        <span class="card-total">{formatCurrency(total)}</span>
-      {/if}
+<div class="variable-expenses-section" class:compact={compactMode}>
+  <div class="section-header">
+    <div class="section-title">
+      <span class="section-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19H19C20.1046 19 21 18.1046 21 17V7C21 5.89543 20.1046 5 19 5Z" stroke="currentColor" stroke-width="2"/>
+          <path d="M3 10H21" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </span>
+      <h4>Variable Expenses</h4>
+      <span class="item-count">({expenses.length})</span>
+      <button class="add-btn" on:click={openAddForm} title="Add variable expense">
+        +
+      </button>
     </div>
-    {#if !showForm}
-      <button class="add-btn" on:click={openAddForm}>+ Add</button>
-    {/if}
+    
+    <div class="section-total">
+      <span class="total-label">Total</span>
+      <span class="total-value expense">{formatCurrency(total)}</span>
+    </div>
   </div>
   
   {#if showForm}
-    <form class="expense-form" on:submit|preventDefault={saveExpense}>
+    <div class="expense-form">
       <div class="form-row">
         <input 
           type="text" 
           placeholder="Expense name (e.g., Groceries)"
           bind:value={name}
+          on:keydown={handleKeydown}
           class:error={error && !name.trim()}
         />
       </div>
@@ -206,20 +225,19 @@
             type="text" 
             placeholder="0.00"
             bind:value={amount}
+            on:keydown={handleKeydown}
             class:error={error && parseDollarsToCents(amount) <= 0}
           />
         </div>
-      </div>
-      {#if paymentSources.length > 0}
-        <div class="form-row">
+        {#if paymentSources.length > 0}
           <select bind:value={paymentSourceId} class="payment-source-select">
             <option value="">No payment source</option>
             {#each paymentSources as source}
               <option value={source.id}>{source.name}</option>
             {/each}
           </select>
-        </div>
-      {/if}
+        {/if}
+      </div>
       {#if error}
         <p class="error-message">{error}</p>
       {/if}
@@ -227,37 +245,43 @@
         <button type="button" class="cancel-btn" on:click={cancelForm} disabled={saving}>
           Cancel
         </button>
-        <button type="submit" class="save-btn" disabled={saving}>
+        <button type="button" class="save-btn" on:click={saveExpense} disabled={saving}>
           {saving ? 'Saving...' : (editingId ? 'Update' : 'Add')}
         </button>
       </div>
-    </form>
+    </div>
   {/if}
   
-  {#if loading}
-    <p class="loading-text">Loading...</p>
-  {:else if expenses.length === 0 && !showForm}
-    <p class="empty-text">No variable expenses yet. Click + Add to track groceries, gas, etc.</p>
+  {#if expenses.length === 0 && !showForm}
+    <p class="empty-text">No variable expenses yet. Click + to add groceries, gas, etc.</p>
   {:else}
-    <ul class="expenses-list">
+    <div class="expenses-list">
       {#each expenses as expense (expense.id)}
-        <li class="expense-item" class:editing={editingId === expense.id}>
+        <div class="expense-row" class:editing={editingId === expense.id}>
           <div class="expense-info">
-            <div class="expense-details">
-              <span class="expense-name">{expense.name}</span>
-              {#if getPaymentSourceName(expense.payment_source_id)}
-                <span class="expense-source">{getPaymentSourceName(expense.payment_source_id)}</span>
-              {/if}
-            </div>
-            <span class="expense-amount">{formatCurrency(expense.amount)}</span>
+            <span class="expense-name">{expense.name}</span>
+            {#if getPaymentSourceName(expense.payment_source_id)}
+              <span class="expense-source">{getPaymentSourceName(expense.payment_source_id)}</span>
+            {/if}
           </div>
+          <div class="expense-amount">{formatCurrency(expense.amount)}</div>
           <div class="expense-actions">
-              <button class="edit-btn" on:click={() => openEditForm(expense)}>Edit</button>
-              <button class="delete-btn" on:click={() => confirmDeleteExpense(expense)}>Delete</button>
+            <button class="action-btn edit" on:click={() => openEditForm(expense)} title="Edit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M11 4H4C3.46957 4 2.96086 4.21071 2.58579 4.58579C2.21071 4.96086 2 5.46957 2 6V20C2 20.5304 2.21071 21.0391 2.58579 21.4142C2.96086 21.7893 3.46957 22 4 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M18.5 2.50001C18.8978 2.10219 19.4374 1.87869 20 1.87869C20.5626 1.87869 21.1022 2.10219 21.5 2.50001C21.8978 2.89784 22.1213 3.4374 22.1213 4.00001C22.1213 4.56262 21.8978 5.10219 21.5 5.50001L12 15L8 16L9 12L18.5 2.50001Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="action-btn delete" on:click={() => confirmDeleteExpense(expense)} title="Delete">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
           </div>
-        </li>
+        </div>
       {/each}
-    </ul>
+    </div>
   {/if}
 </div>
 
@@ -272,55 +296,89 @@
 />
 
 <style>
-  .expenses-card {
-    background: #1a1a2e;
+  .variable-expenses-section {
+    background: rgba(255, 255, 255, 0.02);
     border-radius: 12px;
     border: 1px solid #333355;
-    padding: 20px;
+    padding: 16px;
+    margin-top: 20px;
   }
   
-  .card-header {
+  .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
   }
   
-  .card-header-left {
+  .section-title {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
   
-  .card-header h3 {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin: 0;
-  }
-  
-  .card-total {
-    font-size: 1rem;
-    font-weight: 700;
+  .section-icon {
     color: #f87171;
+    display: flex;
+    align-items: center;
+  }
+  
+  .section-title h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e4e4e7;
+  }
+  
+  .item-count {
+    font-size: 0.75rem;
+    color: #888;
   }
   
   .add-btn {
-    padding: 6px 12px;
-    background: #24c8db;
-    border: none;
-    border-radius: 6px;
-    color: #000;
-    font-size: 0.75rem;
-    font-weight: 600;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: 1px dashed #555;
+    background: transparent;
+    color: #888;
+    font-size: 1rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    margin-left: 4px;
   }
   
   .add-btn:hover {
-    opacity: 0.9;
+    border-color: #24c8db;
+    color: #24c8db;
+    background: rgba(36, 200, 219, 0.1);
+  }
+  
+  .section-total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  
+  .total-label {
+    font-size: 0.625rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .total-value {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  
+  .total-value.expense {
+    color: #f87171;
   }
   
   .expense-form {
@@ -328,14 +386,17 @@
     padding: 16px;
     border-radius: 8px;
     margin-bottom: 16px;
+    border: 1px solid #24c8db33;
   }
   
   .form-row {
+    display: flex;
+    gap: 12px;
     margin-bottom: 12px;
   }
   
   .form-row input {
-    width: 100%;
+    flex: 1;
     padding: 10px 12px;
     background: #0f0f1a;
     border: 1px solid #333355;
@@ -357,6 +418,8 @@
   
   .amount-input {
     position: relative;
+    flex: 1;
+    max-width: 150px;
   }
   
   .amount-input .prefix {
@@ -369,10 +432,11 @@
   
   .amount-input input {
     padding-left: 28px;
+    width: 100%;
   }
   
   .payment-source-select {
-    width: 100%;
+    flex: 1;
     padding: 10px 12px;
     background: #0f0f1a;
     border: 1px solid #333355;
@@ -441,38 +505,39 @@
     cursor: not-allowed;
   }
   
+  .empty-text {
+    color: #666;
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 24px;
+  }
+  
   .expenses-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
   }
   
-  .expense-item {
+  .expense-row {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 12px;
+    gap: 12px;
+    padding: 10px 12px;
     background: rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
-    border: 1px solid transparent;
+    border-radius: 6px;
+    transition: background 0.15s;
   }
   
-  .expense-item.editing {
-    border-color: #24c8db;
+  .expense-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  .expense-row.editing {
+    border: 1px solid #24c8db;
   }
   
   .expense-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     flex: 1;
-    gap: 16px;
-  }
-  
-  .expense-details {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -481,50 +546,112 @@
   .expense-name {
     color: #e4e4e7;
     font-weight: 500;
+    font-size: 0.9rem;
   }
   
   .expense-source {
-    color: #888;
+    color: #666;
     font-size: 0.75rem;
   }
   
   .expense-amount {
-    color: #f87171;
     font-weight: 600;
+    color: #f87171;
+    font-size: 0.9rem;
   }
   
   .expense-actions {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: 16px;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
   }
   
-  .edit-btn, .delete-btn {
-    padding: 4px 8px;
-    background: transparent;
-    border: 1px solid #333355;
+  .expense-row:hover .expense-actions {
+    opacity: 1;
+  }
+  
+  .action-btn {
+    width: 28px;
+    height: 28px;
     border-radius: 4px;
-    color: #888;
-    font-size: 0.75rem;
+    border: none;
+    background: transparent;
+    color: #666;
     cursor: pointer;
-    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
   }
   
-  .edit-btn:hover {
-    border-color: #24c8db;
+  .action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .action-btn.edit:hover {
     color: #24c8db;
   }
   
-  .delete-btn:hover {
-    border-color: #f87171;
+  .action-btn.delete:hover {
     color: #f87171;
   }
   
-  .loading-text, .empty-text {
-    color: #888;
-    font-size: 0.875rem;
-    text-align: center;
-    padding: 20px;
+  /* Compact mode styles */
+  .variable-expenses-section.compact {
+    padding: 10px;
+    margin-top: 12px;
+  }
+  
+  .variable-expenses-section.compact .section-header {
+    margin-bottom: 10px;
+  }
+  
+  .variable-expenses-section.compact .section-title h4 {
+    font-size: 0.9rem;
+  }
+  
+  .variable-expenses-section.compact .add-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 0.85rem;
+  }
+  
+  .variable-expenses-section.compact .total-value {
+    font-size: 0.9rem;
+  }
+  
+  .variable-expenses-section.compact .expense-row {
+    padding: 6px 8px;
+  }
+  
+  .variable-expenses-section.compact .expense-name {
+    font-size: 0.8rem;
+  }
+  
+  .variable-expenses-section.compact .expense-amount {
+    font-size: 0.8rem;
+  }
+  
+  .variable-expenses-section.compact .action-btn {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .variable-expenses-section.compact .expense-form {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .variable-expenses-section.compact .form-row input,
+  .variable-expenses-section.compact .payment-source-select {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  
+  .variable-expenses-section.compact .cancel-btn,
+  .variable-expenses-section.compact .save-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
   }
 </style>

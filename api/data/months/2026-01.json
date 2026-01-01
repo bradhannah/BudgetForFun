@@ -7,12 +7,20 @@
       "month": "2026-01",
       "amount": 150000,
       "expected_amount": 150000,
-      "payments": [],
-      "is_default": true,
+      "payments": [
+        {
+          "id": "67309f3d-6597-4e04-a556-0e4e8dafa1ef",
+          "amount": 15400,
+          "date": "2026-01-01",
+          "created_at": "2026-01-01T18:47:11.551Z"
+        }
+      ],
+      "is_default": false,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T18:47:23.874Z"
     },
     {
       "id": "3e23c7d9-3eb1-4409-8d58-5d66ef8fbc32",
@@ -20,12 +28,14 @@
       "month": "2026-01",
       "amount": 12500,
       "expected_amount": 12500,
+      "actual_amount": 12500,
       "payments": [],
       "is_default": true,
-      "is_paid": false,
+      "is_paid": true,
+      "is_closed": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T13:06:09.095Z"
     },
     {
       "id": "261805ff-12aa-4847-b3fc-3b992e058011",
@@ -36,6 +46,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
       "updated_at": "2025-12-31T16:14:09.181Z"
@@ -49,6 +60,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
       "updated_at": "2025-12-31T16:14:09.181Z"
@@ -62,6 +74,7 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
       "updated_at": "2025-12-31T16:14:09.181Z"
@@ -72,12 +85,21 @@
       "month": "2026-01",
       "amount": 222,
       "expected_amount": 222,
-      "payments": [],
-      "is_default": true,
-      "is_paid": false,
+      "actual_amount": 222,
+      "payments": [
+        {
+          "id": "f67b6378-3d73-4041-b55d-7b63b63d9a51",
+          "amount": 222,
+          "date": "2026-01-01",
+          "created_at": "2026-01-01T12:55:54.518Z"
+        }
+      ],
+      "is_default": false,
+      "is_paid": true,
+      "is_closed": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T12:55:54.518Z"
     },
     {
       "id": "647e69ca-7ba3-4adf-a81a-8712f9c6a9d7",
@@ -88,9 +110,10 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2026-01-01T12:47:55.126Z",
-      "updated_at": "2026-01-01T12:47:55.126Z"
+      "updated_at": "2026-01-01T13:53:42.629Z"
     },
     {
       "id": "6fac4643-d5fb-45fb-86f4-2a6154abad52",
@@ -101,9 +124,10 @@
       "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2026-01-01T12:47:55.126Z",
-      "updated_at": "2026-01-01T12:47:55.126Z"
+      "updated_at": "2026-01-01T13:53:43.686Z"
     }
   ],
   "income_instances": [
@@ -113,11 +137,13 @@
       "month": "2026-01",
       "amount": 1112222,
       "expected_amount": 1112222,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-30T18:21:27.102Z",
-      "updated_at": "2025-12-30T18:21:27.102Z"
+      "updated_at": "2026-01-01T17:50:37.255Z"
     },
     {
       "id": "6d782509-7b5d-4edf-a3f9-b6b6cb6177bf",
@@ -125,11 +151,13 @@
       "month": "2026-01",
       "amount": 866667,
       "expected_amount": 866667,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T13:07:00.167Z"
     },
     {
       "id": "8e2335fd-7536-43c7-9308-2212a3bebacf",
@@ -137,23 +165,28 @@
       "month": "2026-01",
       "amount": 7222,
       "expected_amount": 7222,
-      "is_default": true,
+      "actual_amount": 2200,
+      "payments": [],
+      "is_default": false,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T17:50:43.579Z"
     },
     {
       "id": "45fb46e3-356a-4530-baca-8910feb3d67f",
       "income_id": "9ce3f55c-6f57-4238-bbd3-48dd",
       "month": "2026-01",
-      "amount": 444,
+      "amount": 6600,
       "expected_amount": 444,
-      "is_default": true,
+      "payments": [],
+      "is_default": false,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T17:50:38.374Z"
     },
     {
       "id": "9249f87e-173d-47c3-83b2-34c0b15f970c",
@@ -161,11 +194,13 @@
       "month": "2026-01",
       "amount": 13332,
       "expected_amount": 13332,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T17:50:46.896Z"
     },
     {
       "id": "7c6d203d-13ac-4cb9-9580-f923bbd9f667",
@@ -173,11 +208,13 @@
       "month": "2026-01",
       "amount": 11111,
       "expected_amount": 11111,
+      "payments": [],
       "is_default": true,
       "is_paid": false,
+      "is_closed": false,
       "is_adhoc": false,
       "created_at": "2025-12-31T16:14:09.181Z",
-      "updated_at": "2025-12-31T16:14:09.181Z"
+      "updated_at": "2026-01-01T17:50:36.159Z"
     }
   ],
   "variable_expenses": [
@@ -192,7 +229,9 @@
     }
   ],
   "free_flowing_expenses": [],
-  "bank_balances": {},
+  "bank_balances": {
+    "9064f880-eb6d-40f5-953e-3316ce65792a": 111
+  },
   "created_at": "2025-12-30T18:21:27.102Z",
-  "updated_at": "2026-01-01T12:49:43.707Z"
+  "updated_at": "2026-01-01T18:47:23.874Z"
 }

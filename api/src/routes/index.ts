@@ -48,7 +48,13 @@ import {
   createBillInstanceHandlerTogglePaid,
   createIncomeInstanceHandlerPUT,
   createIncomeInstanceHandlerReset,
-  createIncomeInstanceHandlerTogglePaid
+  createIncomeInstanceHandlerTogglePaid,
+  createBillInstanceHandlerClose,
+  createBillInstanceHandlerReopen,
+  createIncomeInstanceHandlerClose,
+  createIncomeInstanceHandlerReopen,
+  createBillInstanceHandlerUpdateExpected,
+  createIncomeInstanceHandlerUpdateExpected
 } from './handlers/instances.handlers';
 
 import {
@@ -162,11 +168,17 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/months/bills/payments', definition: { method: 'DELETE', handler: createDeletePaymentHandler(), hasPathParam: true } },
   { path: '/api/months/bills/reset', definition: { method: 'POST', handler: createBillInstanceHandlerReset(), hasPathParam: true } },
   { path: '/api/months/bills/paid', definition: { method: 'POST', handler: createBillInstanceHandlerTogglePaid(), hasPathParam: true } },
+  { path: '/api/months/bills/close', definition: { method: 'POST', handler: createBillInstanceHandlerClose(), hasPathParam: true } },
+  { path: '/api/months/bills/reopen', definition: { method: 'POST', handler: createBillInstanceHandlerReopen(), hasPathParam: true } },
+  { path: '/api/months/bills/expected', definition: { method: 'PUT', handler: createBillInstanceHandlerUpdateExpected(), hasPathParam: true } },
   { path: '/api/months/bills', definition: { method: 'PUT', handler: createBillInstanceHandlerPUT(), hasPathParam: true } },
   
   // Income instances
   { path: '/api/months/incomes/reset', definition: { method: 'POST', handler: createIncomeInstanceHandlerReset(), hasPathParam: true } },
   { path: '/api/months/incomes/paid', definition: { method: 'POST', handler: createIncomeInstanceHandlerTogglePaid(), hasPathParam: true } },
+  { path: '/api/months/incomes/close', definition: { method: 'POST', handler: createIncomeInstanceHandlerClose(), hasPathParam: true } },
+  { path: '/api/months/incomes/reopen', definition: { method: 'POST', handler: createIncomeInstanceHandlerReopen(), hasPathParam: true } },
+  { path: '/api/months/incomes/expected', definition: { method: 'PUT', handler: createIncomeInstanceHandlerUpdateExpected(), hasPathParam: true } },
   { path: '/api/months/incomes', definition: { method: 'PUT', handler: createIncomeInstanceHandlerPUT(), hasPathParam: true } },
   
   // Ad-hoc bills - make-regular must come before other adhoc routes

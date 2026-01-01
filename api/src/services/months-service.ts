@@ -53,9 +53,19 @@ export interface MonthsService {
   resetBillInstance(month: string, instanceId: string): Promise<BillInstance | null>;
   resetIncomeInstance(month: string, instanceId: string): Promise<IncomeInstance | null>;
   
-  // Mark as paid methods
+  // Mark as paid methods (DEPRECATED - use close/reopen instead)
   toggleBillInstancePaid(month: string, instanceId: string): Promise<BillInstance | null>;
-  toggleIncomeInstancePaid(month: string, instanceId: string): Promise<IncomeInstance | null>;
+  toggleIncomeInstancePaid(month: string, instanceId: string, actualAmount?: number): Promise<IncomeInstance | null>;
+  
+  // Close/Reopen methods (new transaction-based flow)
+  closeBillInstance(month: string, instanceId: string): Promise<BillInstance | null>;
+  reopenBillInstance(month: string, instanceId: string): Promise<BillInstance | null>;
+  closeIncomeInstance(month: string, instanceId: string): Promise<IncomeInstance | null>;
+  reopenIncomeInstance(month: string, instanceId: string): Promise<IncomeInstance | null>;
+  
+  // Expected amount update (inline edit)
+  updateBillExpectedAmount(month: string, instanceId: string, amount: number): Promise<BillInstance | null>;
+  updateIncomeExpectedAmount(month: string, instanceId: string, amount: number): Promise<IncomeInstance | null>;
 }
 
 export class MonthsServiceImpl implements MonthsService {
@@ -191,6 +201,7 @@ export class MonthsServiceImpl implements MonthsService {
           payments: [],                  // NEW: Empty payments array
           is_default: true,
           is_paid: false,
+          is_closed: false,              // NEW: Not closed yet
           is_adhoc: false,               // NEW: Not ad-hoc (linked to bill)
           due_date: undefined,           // NEW: Will be calculated from bill.due_day if present
           created_at: now,
@@ -217,8 +228,10 @@ export class MonthsServiceImpl implements MonthsService {
           amount,
           expected_amount: amount,       // NEW: Same as amount for new instances
           actual_amount: undefined,      // NEW: No actual entered yet
+          payments: [],                  // NEW: Empty payments array
           is_default: true,
           is_paid: false,
+          is_closed: false,              // NEW: Not closed yet
           is_adhoc: false,               // NEW: Not ad-hoc (linked to income)
           due_date: undefined,           // NEW: Will be calculated from income.due_day if present
           created_at: now,
@@ -287,6 +300,7 @@ export class MonthsServiceImpl implements MonthsService {
           payments: [],                  // NEW: Empty payments array
           is_default: true,
           is_paid: false,
+          is_closed: false,              // NEW: Not closed yet
           is_adhoc: false,               // NEW: Not ad-hoc (linked to bill)
           due_date: undefined,           // NEW: Will be calculated from bill.due_day if present
           created_at: now,
@@ -317,8 +331,10 @@ export class MonthsServiceImpl implements MonthsService {
           amount,
           expected_amount: amount,       // NEW: Same as amount for new instances
           actual_amount: undefined,      // NEW: No actual entered yet
+          payments: [],                  // NEW: Empty payments array
           is_default: true,
           is_paid: false,
+          is_closed: false,              // NEW: Not closed yet
           is_adhoc: false,               // NEW: Not ad-hoc (linked to income)
           due_date: undefined,           // NEW: Will be calculated from income.due_day if present
           created_at: now,
@@ -588,7 +604,7 @@ export class MonthsServiceImpl implements MonthsService {
     }
   }
   
-  public async toggleIncomeInstancePaid(month: string, instanceId: string): Promise<IncomeInstance | null> {
+  public async toggleIncomeInstancePaid(month: string, instanceId: string, actualAmount?: number): Promise<IncomeInstance | null> {
     try {
       const data = await this.getMonthlyData(month);
       if (!data) {
@@ -602,10 +618,20 @@ export class MonthsServiceImpl implements MonthsService {
       
       const now = new Date().toISOString();
       const currentPaid = data.income_instances[index].is_paid ?? false;
-      data.income_instances[index] = {
-        ...data.income_instances[index],
+      const updates: Partial<IncomeInstance> = {
         is_paid: !currentPaid,
         updated_at: now
+      };
+      
+      // If marking as received and actualAmount provided, set the actual_amount
+      if (!currentPaid && actualAmount !== undefined) {
+        updates.actual_amount = actualAmount;
+        updates.is_default = false;
+      }
+      
+      data.income_instances[index] = {
+        ...data.income_instances[index],
+        ...updates
       };
       data.updated_at = now;
       
@@ -613,6 +639,200 @@ export class MonthsServiceImpl implements MonthsService {
       return data.income_instances[index];
     } catch (error) {
       console.error('[MonthsService] Failed to toggle income instance paid:', error);
+      throw error;
+    }
+  }
+  
+  // ============================================================================
+  // Close/Reopen Methods (New Transaction-Based Flow)
+  // ============================================================================
+  
+  public async closeBillInstance(month: string, instanceId: string): Promise<BillInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) {
+        throw new Error(`Monthly data for ${month} not found`);
+      }
+      
+      const index = data.bill_instances.findIndex(bi => bi.id === instanceId);
+      if (index === -1) {
+        return null;
+      }
+      
+      const now = new Date().toISOString();
+      const today = now.split('T')[0]; // YYYY-MM-DD
+      
+      data.bill_instances[index] = {
+        ...data.bill_instances[index],
+        is_closed: true,
+        is_paid: true, // Keep in sync for backwards compatibility
+        closed_date: today,
+        updated_at: now
+      };
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return data.bill_instances[index];
+    } catch (error) {
+      console.error('[MonthsService] Failed to close bill instance:', error);
+      throw error;
+    }
+  }
+  
+  public async reopenBillInstance(month: string, instanceId: string): Promise<BillInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) {
+        throw new Error(`Monthly data for ${month} not found`);
+      }
+      
+      const index = data.bill_instances.findIndex(bi => bi.id === instanceId);
+      if (index === -1) {
+        return null;
+      }
+      
+      const now = new Date().toISOString();
+      
+      data.bill_instances[index] = {
+        ...data.bill_instances[index],
+        is_closed: false,
+        is_paid: false, // Keep in sync for backwards compatibility
+        closed_date: undefined,
+        updated_at: now
+      };
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return data.bill_instances[index];
+    } catch (error) {
+      console.error('[MonthsService] Failed to reopen bill instance:', error);
+      throw error;
+    }
+  }
+  
+  public async closeIncomeInstance(month: string, instanceId: string): Promise<IncomeInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) {
+        throw new Error(`Monthly data for ${month} not found`);
+      }
+      
+      const index = data.income_instances.findIndex(ii => ii.id === instanceId);
+      if (index === -1) {
+        return null;
+      }
+      
+      const now = new Date().toISOString();
+      const today = now.split('T')[0]; // YYYY-MM-DD
+      
+      data.income_instances[index] = {
+        ...data.income_instances[index],
+        is_closed: true,
+        is_paid: true, // Keep in sync for backwards compatibility
+        closed_date: today,
+        updated_at: now
+      };
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return data.income_instances[index];
+    } catch (error) {
+      console.error('[MonthsService] Failed to close income instance:', error);
+      throw error;
+    }
+  }
+  
+  public async reopenIncomeInstance(month: string, instanceId: string): Promise<IncomeInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) {
+        throw new Error(`Monthly data for ${month} not found`);
+      }
+      
+      const index = data.income_instances.findIndex(ii => ii.id === instanceId);
+      if (index === -1) {
+        return null;
+      }
+      
+      const now = new Date().toISOString();
+      
+      data.income_instances[index] = {
+        ...data.income_instances[index],
+        is_closed: false,
+        is_paid: false, // Keep in sync for backwards compatibility
+        closed_date: undefined,
+        updated_at: now
+      };
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return data.income_instances[index];
+    } catch (error) {
+      console.error('[MonthsService] Failed to reopen income instance:', error);
+      throw error;
+    }
+  }
+  
+  // ============================================================================
+  // Expected Amount Update Methods (Inline Edit)
+  // ============================================================================
+  
+  public async updateBillExpectedAmount(month: string, instanceId: string, amount: number): Promise<BillInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) {
+        throw new Error(`Monthly data for ${month} not found`);
+      }
+      
+      const index = data.bill_instances.findIndex(bi => bi.id === instanceId);
+      if (index === -1) {
+        return null;
+      }
+      
+      const now = new Date().toISOString();
+      data.bill_instances[index] = {
+        ...data.bill_instances[index],
+        expected_amount: amount,
+        amount: amount, // Keep deprecated field in sync
+        is_default: false,
+        updated_at: now
+      };
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return data.bill_instances[index];
+    } catch (error) {
+      console.error('[MonthsService] Failed to update bill expected amount:', error);
+      throw error;
+    }
+  }
+  
+  public async updateIncomeExpectedAmount(month: string, instanceId: string, amount: number): Promise<IncomeInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) {
+        throw new Error(`Monthly data for ${month} not found`);
+      }
+      
+      const index = data.income_instances.findIndex(ii => ii.id === instanceId);
+      if (index === -1) {
+        return null;
+      }
+      
+      const now = new Date().toISOString();
+      data.income_instances[index] = {
+        ...data.income_instances[index],
+        expected_amount: amount,
+        amount: amount, // Keep deprecated field in sync
+        is_default: false,
+        updated_at: now
+      };
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return data.income_instances[index];
+    } catch (error) {
+      console.error('[MonthsService] Failed to update income expected amount:', error);
       throw error;
     }
   }

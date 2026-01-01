@@ -20,8 +20,10 @@ export interface BillInstanceDetailed {
   total_paid: number;
   remaining: number;
   is_paid: boolean;
+  is_closed: boolean;
   is_adhoc: boolean;
   due_date: string | null;
+  closed_date: string | null;
   is_overdue: boolean;
   days_overdue: number | null;
   payment_source: {
@@ -37,9 +39,14 @@ export interface IncomeInstanceDetailed {
   name: string;
   expected_amount: number;
   actual_amount: number | null;
+  payments: Payment[];
+  total_received: number;
+  remaining: number;
   is_paid: boolean;
+  is_closed: boolean;
   is_adhoc: boolean;
   due_date: string | null;
+  closed_date: string | null;
   is_overdue: boolean;
   payment_source: {
     id: string;
@@ -137,16 +144,298 @@ function createDetailedMonthStore() {
     },
 
     async refresh(): Promise<void> {
-      const currentState = await new Promise<DetailedMonthState>(resolve => {
-        const unsubscribe = subscribe(state => {
-          resolve(state);
-          unsubscribe();
-        });
+      // Get current state synchronously
+      let currentMonth: string | null = null;
+      const unsubscribe = subscribe(state => {
+        currentMonth = state.currentMonth;
       });
+      unsubscribe(); // Immediately unsubscribe after getting the value
       
-      if (currentState.currentMonth) {
-        await this.loadMonth(currentState.currentMonth);
+      if (currentMonth) {
+        await this.loadMonth(currentMonth);
       }
+    },
+
+    // Optimistic update for bill paid status - updates locally without re-sorting
+    updateBillPaidStatus(instanceId: string, isPaid: boolean, actualAmount: number | null): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const newBillSections: CategorySection[] = state.data.billSections.map(section => {
+          const billItems = section.items as BillInstanceDetailed[];
+          const newItems = billItems.map(item => {
+            if (item.id === instanceId) {
+              return {
+                ...item,
+                is_paid: isPaid,
+                actual_amount: actualAmount,
+                total_paid: actualAmount ?? item.expected_amount,
+                remaining: isPaid ? 0 : item.expected_amount - (actualAmount ?? 0)
+              };
+            }
+            return item;
+          });
+          
+          // Recalculate subtotal
+          const expected = newItems.reduce((sum, i) => sum + i.expected_amount, 0);
+          const actual = newItems.reduce((sum, i) => sum + i.total_paid, 0);
+          
+          return {
+            ...section,
+            items: newItems,
+            subtotal: { expected, actual }
+          };
+        });
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            billSections: newBillSections
+          }
+        };
+      });
+    },
+
+    // Optimistic update for income paid status - updates locally without re-sorting
+    updateIncomePaidStatus(instanceId: string, isPaid: boolean, actualAmount?: number): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const newIncomeSections: CategorySection[] = state.data.incomeSections.map(section => {
+          const incomeItems = section.items as IncomeInstanceDetailed[];
+          const newItems = incomeItems.map(item => {
+            if (item.id === instanceId) {
+              // Use provided actualAmount, or default to expected if marking paid without amount
+              const newActualAmount = isPaid 
+                ? (actualAmount !== undefined ? actualAmount : item.expected_amount)
+                : null;
+              return {
+                ...item,
+                is_paid: isPaid,
+                actual_amount: newActualAmount
+              };
+            }
+            return item;
+          });
+          
+          // Recalculate subtotal
+          const expected = newItems.reduce((sum, i) => sum + i.expected_amount, 0);
+          const actual = newItems.reduce((sum, i) => sum + (i.actual_amount ?? 0), 0);
+          
+          return {
+            ...section,
+            items: newItems,
+            subtotal: { expected, actual }
+          };
+        });
+        
+        // Recalculate income tallies
+        let regularIncomeActual = 0;
+        let adhocIncomeActual = 0;
+        newIncomeSections.forEach(section => {
+          (section.items as IncomeInstanceDetailed[]).forEach(item => {
+            if (item.is_adhoc) {
+              adhocIncomeActual += item.actual_amount ?? 0;
+            } else {
+              regularIncomeActual += item.actual_amount ?? 0;
+            }
+          });
+        });
+        
+        const newTallies = {
+          ...state.data.tallies,
+          income: {
+            ...state.data.tallies.income,
+            actual: regularIncomeActual
+          },
+          adhocIncome: {
+            ...state.data.tallies.adhocIncome,
+            actual: adhocIncomeActual
+          },
+          totalIncome: {
+            ...state.data.tallies.totalIncome,
+            actual: regularIncomeActual + adhocIncomeActual
+          }
+        };
+        
+        // Also update leftover breakdown
+        const newLeftoverBreakdown = {
+          ...state.data.leftoverBreakdown,
+          actualIncome: regularIncomeActual + adhocIncomeActual
+        };
+        
+        // Recalculate leftover: actualIncome + bankBalances - totalExpenses
+        const bankBalancesTotal = Object.values(state.data.bankBalances).reduce((sum, val) => sum + val, 0);
+        const newLeftover = (regularIncomeActual + adhocIncomeActual) + bankBalancesTotal - state.data.leftoverBreakdown.totalExpenses;
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            incomeSections: newIncomeSections,
+            tallies: newTallies,
+            leftover: newLeftover,
+            leftoverBreakdown: {
+              ...newLeftoverBreakdown,
+              leftover: newLeftover,
+              hasActuals: (regularIncomeActual + adhocIncomeActual) > 0 || state.data.leftoverBreakdown.totalExpenses > 0
+            }
+          }
+        };
+      });
+    },
+
+    // Optimistic update for bill close/reopen
+    updateBillClosedStatus(instanceId: string, isClosed: boolean): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        const newBillSections: CategorySection[] = state.data.billSections.map(section => {
+          const billItems = section.items as BillInstanceDetailed[];
+          const newItems = billItems.map(item => {
+            if (item.id === instanceId) {
+              return {
+                ...item,
+                is_closed: isClosed,
+                is_paid: isClosed,
+                closed_date: isClosed ? today : null
+              };
+            }
+            return item;
+          });
+          
+          return {
+            ...section,
+            items: newItems
+          };
+        });
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            billSections: newBillSections
+          }
+        };
+      });
+    },
+
+    // Optimistic update for income close/reopen
+    updateIncomeClosedStatus(instanceId: string, isClosed: boolean): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        const newIncomeSections: CategorySection[] = state.data.incomeSections.map(section => {
+          const incomeItems = section.items as IncomeInstanceDetailed[];
+          const newItems = incomeItems.map(item => {
+            if (item.id === instanceId) {
+              return {
+                ...item,
+                is_closed: isClosed,
+                is_paid: isClosed,
+                closed_date: isClosed ? today : null
+              };
+            }
+            return item;
+          });
+          
+          return {
+            ...section,
+            items: newItems
+          };
+        });
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            incomeSections: newIncomeSections
+          }
+        };
+      });
+    },
+
+    // Optimistic update for expected amount change
+    updateBillExpectedAmount(instanceId: string, newExpected: number): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const newBillSections: CategorySection[] = state.data.billSections.map(section => {
+          const billItems = section.items as BillInstanceDetailed[];
+          const newItems = billItems.map(item => {
+            if (item.id === instanceId) {
+              return {
+                ...item,
+                expected_amount: newExpected,
+                remaining: Math.max(0, newExpected - item.total_paid)
+              };
+            }
+            return item;
+          });
+          
+          // Recalculate subtotal
+          const expected = newItems.reduce((sum, i) => sum + i.expected_amount, 0);
+          const actual = newItems.reduce((sum, i) => sum + i.total_paid, 0);
+          
+          return {
+            ...section,
+            items: newItems,
+            subtotal: { expected, actual }
+          };
+        });
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            billSections: newBillSections
+          }
+        };
+      });
+    },
+
+    // Optimistic update for income expected amount change
+    updateIncomeExpectedAmount(instanceId: string, newExpected: number): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const newIncomeSections: CategorySection[] = state.data.incomeSections.map(section => {
+          const incomeItems = section.items as IncomeInstanceDetailed[];
+          const newItems = incomeItems.map(item => {
+            if (item.id === instanceId) {
+              return {
+                ...item,
+                expected_amount: newExpected,
+                remaining: Math.max(0, newExpected - item.total_received)
+              };
+            }
+            return item;
+          });
+          
+          // Recalculate subtotal
+          const expected = newItems.reduce((sum, i) => sum + i.expected_amount, 0);
+          const actual = newItems.reduce((sum, i) => sum + i.total_received, 0);
+          
+          return {
+            ...section,
+            items: newItems,
+            subtotal: { expected, actual }
+          };
+        });
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            incomeSections: newIncomeSections
+          }
+        };
+      });
     },
 
     clear(): void {

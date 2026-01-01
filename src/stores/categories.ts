@@ -111,11 +111,9 @@ export async function reorderCategories(type: CategoryType, orderedIds: string[]
   store.update(s => ({ ...s, loading: true, error: null }));
   
   try {
-    await fetch('http://localhost:3000/api/categories/reorder', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type, orderedIds })
-    });
+    await apiClient.putPath('/api/categories/reorder', { type, orderedIds });
+    
+    // Reload categories to get the updated sort_order values
     await loadCategories();
   } catch (e) {
     const err = e instanceof Error ? e : new Error('Failed to reorder categories');

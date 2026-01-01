@@ -3,7 +3,7 @@
 import { writable, derived } from 'svelte/store';
 
 // Get current month in YYYY-MM format
-function getCurrentMonth(): string {
+export function getCurrentMonth(): string {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -59,6 +59,43 @@ export function goToMonth(month: string) {
 export function goToCurrentMonth() {
   currentMonth.set(getCurrentMonth());
 }
+
+// Wide mode store with localStorage persistence
+function getStoredWideMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  const stored = localStorage.getItem('budgetforfun-wide-mode');
+  return stored === 'true';
+}
+
+function createWideModeStore() {
+  const { subscribe, set, update } = writable<boolean>(false);
+  
+  // Initialize from localStorage on client side
+  if (typeof window !== 'undefined') {
+    set(getStoredWideMode());
+  }
+  
+  return {
+    subscribe,
+    toggle: () => {
+      update(current => {
+        const newValue = !current;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('budgetforfun-wide-mode', String(newValue));
+        }
+        return newValue;
+      });
+    },
+    set: (value: boolean) => {
+      set(value);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('budgetforfun-wide-mode', String(value));
+      }
+    }
+  };
+}
+
+export const wideMode = createWideModeStore();
 
 // UI state store for sidebar, drawers, etc.
 interface UIState {

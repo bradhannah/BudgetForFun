@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
+  import { dndzone, SHADOW_PLACEHOLDER_ITEM_ID } from 'svelte-dnd-action';
   import type { Category, CategoryType } from '../../stores/categories';
   import { reorderCategories, updateCategory } from '../../stores/categories';
   import { success, error as showError } from '../../stores/toast';
@@ -8,68 +9,40 @@
   export let type: CategoryType;
   
   const dispatch = createEventDispatcher();
+  const flipDurationMs = 200;
   
-  let draggedId: string | null = null;
-  let dragOverId: string | null = null;
+  // Local display order - synced with prop but can be updated optimistically
+  let displayCategories: Category[] = [];
+  
+  // Sync display categories when prop changes
+  $: {
+    displayCategories = [...categories];
+  }
   
   // Color picker refs - one per category
   let colorInputs: { [key: string]: HTMLInputElement } = {};
   
-  function handleDragStart(event: DragEvent, id: string) {
-    draggedId = id;
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', id);
-    }
+  function handleDndConsider(e: CustomEvent<{ items: Category[] }>) {
+    // This fires during drag - update display for visual feedback
+    displayCategories = e.detail.items;
   }
   
-  function handleDragOver(event: DragEvent, id: string) {
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'move';
+  async function handleDndFinalize(e: CustomEvent<{ items: Category[] }>) {
+    // This fires when drop completes
+    displayCategories = e.detail.items;
+    
+    // Filter out shadow placeholder items
+    const orderedIds = displayCategories
+      .filter(c => c.id !== SHADOW_PLACEHOLDER_ITEM_ID)
+      .map(c => c.id);
+    
+    // Check if order actually changed
+    const originalIds = categories.map(c => c.id);
+    const orderChanged = orderedIds.some((id, idx) => id !== originalIds[idx]);
+    
+    if (orderChanged) {
+      await saveOrder(orderedIds);
     }
-    dragOverId = id;
-  }
-  
-  function handleDragLeave() {
-    dragOverId = null;
-  }
-  
-  function handleDrop(event: DragEvent, targetId: string) {
-    event.preventDefault();
-    dragOverId = null;
-    
-    if (!draggedId || draggedId === targetId) {
-      draggedId = null;
-      return;
-    }
-    
-    // Reorder locally first for immediate feedback
-    const newOrder = [...categories];
-    const draggedIndex = newOrder.findIndex(c => c.id === draggedId);
-    const targetIndex = newOrder.findIndex(c => c.id === targetId);
-    
-    if (draggedIndex === -1 || targetIndex === -1) {
-      draggedId = null;
-      return;
-    }
-    
-    // Remove dragged item and insert at target position
-    const [removed] = newOrder.splice(draggedIndex, 1);
-    newOrder.splice(targetIndex, 0, removed);
-    
-    // Update categories prop for immediate visual feedback
-    categories = newOrder;
-    
-    // Save to backend
-    saveOrder(newOrder.map(c => c.id));
-    
-    draggedId = null;
-  }
-  
-  function handleDragEnd() {
-    draggedId = null;
-    dragOverId = null;
   }
   
   async function saveOrder(orderedIds: string[]) {
@@ -80,6 +53,8 @@
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save order';
       showError(message);
+      // On error, revert to prop value
+      displayCategories = [...categories];
     }
   }
   
@@ -111,22 +86,22 @@
 <div class="category-orderer">
   <h4>{type === 'bill' ? 'Bill Categories' : 'Income Categories'}</h4>
   
-  {#if categories.length === 0}
+  {#if displayCategories.length === 0}
     <p class="empty-text">No {type} categories yet.</p>
   {:else}
-    <ul class="category-list">
-      {#each categories as cat (cat.id)}
-        <li
-          class="category-item"
-          class:dragging={draggedId === cat.id}
-          class:drag-over={dragOverId === cat.id}
-          draggable="true"
-          on:dragstart={(e) => handleDragStart(e, cat.id)}
-          on:dragover={(e) => handleDragOver(e, cat.id)}
-          on:dragleave={handleDragLeave}
-          on:drop={(e) => handleDrop(e, cat.id)}
-          on:dragend={handleDragEnd}
-        >
+    <ul 
+      class="category-list"
+      use:dndzone={{ 
+        items: displayCategories, 
+        flipDurationMs,
+        dropTargetStyle: {},
+        dragDisabled: false
+      }}
+      on:consider={handleDndConsider}
+      on:finalize={handleDndFinalize}
+    >
+      {#each displayCategories as cat (cat.id)}
+        <li class="category-item">
           <span class="drag-handle">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M8 6h2v2H8V6zm6 0h2v2h-2V6zM8 11h2v2H8v-2zm6 0h2v2h-2v-2zm-6 5h2v2H8v-2zm6 0h2v2h-2v-2z"/>
@@ -158,7 +133,7 @@
     </ul>
   {/if}
   
-  <p class="hint">Drag to reorder • Click color to change</p>
+  <p class="hint">Drag to reorder - Click color to change</p>
 </div>
 
 <style>
@@ -202,16 +177,6 @@
   .category-item:hover {
     background: rgba(255, 255, 255, 0.06);
     border-color: #333355;
-  }
-  
-  .category-item.dragging {
-    opacity: 0.5;
-    cursor: grabbing;
-  }
-  
-  .category-item.drag-over {
-    border-color: #24c8db;
-    background: rgba(36, 200, 219, 0.1);
   }
   
   .drag-handle {

@@ -364,6 +364,8 @@
     border-radius: 6px;
     color: #e4e4e7;
     font-size: 1rem;
+    height: 42px;
+    box-sizing: border-box;
   }
   
   .form-group input:focus,

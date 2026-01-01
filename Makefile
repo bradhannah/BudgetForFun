@@ -1,14 +1,19 @@
 # BudgetForFun Makefile
 # Makefile-based build automation for Tauri + Bun + Svelte development workflow
 
-.PHONY: help dev build clean test lint format types smoke-test install-prereqs install-dev install-all kill-dev
+.PHONY: help dev build clean test lint format types smoke-test install-prereqs install-dev install-all kill-dev logs-clear logs-tail
+
+# Log directory
+LOGS_DIR := logs
 
 # Default target
 help: ## Show this help message
 	@echo "BudgetForFun Makefile - Build Automation"
 	@echo ""
 	@echo "Development Targets:"
-	@echo "  make dev       Start all services (Tauri + Bun + Vite)"
+	@echo "  make dev        Start all services (Tauri + Bun + Vite) with logging"
+	@echo "  make logs-tail  Tail all log files in real-time"
+	@echo "  make logs-clear Clear all log files"
 	@echo ""
 	@echo "Build Targets:"
 	@echo "  make build     Build Tauri application"
@@ -33,6 +38,11 @@ help: ## Show this help message
 	@echo "Quality Targets:"
 	@echo "  make lint      Run ESLint checks"
 	@echo "  make format    Format all files with Prettier"
+	@echo ""
+	@echo "Logs:"
+	@echo "  API log:      $(LOGS_DIR)/api.log"
+	@echo "  Frontend log: $(LOGS_DIR)/frontend.log"
+	@echo "  Tauri log:    $(LOGS_DIR)/tauri.log"
 
 # Utility
 kill-dev: ## Terminate stray development processes (Bun, Vite, Node)
@@ -43,6 +53,18 @@ kill-dev: ## Terminate stray development processes (Bun, Vite, Node)
 	@pkill -f "bun.*server.ts" 2>/dev/null || echo "No Bun server processes"
 	@pkill -f "tauri dev" 2>/dev/null || echo "No Tauri processes"
 	@echo "✓ All stray processes terminated"
+
+logs-clear: ## Clear all log files
+	@echo "Clearing log files..."
+	@mkdir -p $(LOGS_DIR)
+	@> $(LOGS_DIR)/api.log
+	@> $(LOGS_DIR)/frontend.log
+	@> $(LOGS_DIR)/tauri.log
+	@echo "✓ Log files cleared"
+
+logs-tail: ## Tail all log files in real-time
+	@echo "Tailing log files (Ctrl+C to stop)..."
+	@tail -f $(LOGS_DIR)/api.log $(LOGS_DIR)/frontend.log $(LOGS_DIR)/tauri.log
 
 # Installation
 install-prereqs: ## Check and install all prerequisites (Bun, Rust, Node.js, TypeScript)
@@ -68,15 +90,12 @@ check-rust: ## Check if Rust is installed
 		echo "After installation, restart your terminal and run: source ~/.cargo/env"; \
 	fi
 
-check-node: ## Check if Node.js is installed
+check-node: ## Check if Node.js is installed (optional - Bun can be used instead)
 	@echo "Checking Node.js..."
 	@if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then \
-		echo "✓ Node.js ($(shell node --version)) and npm ($(shell npm --version)) are installed"; \
+		echo "✓ Node.js ($(shell node --version 2>/dev/null || echo 'N/A')) and npm ($(shell npm --version 2>/dev/null || echo 'N/A')) are installed"; \
 	else \
-		echo "✗ Node.js is NOT installed"; \
-		echo ""; \
-		echo "To install Node.js, visit: https://nodejs.org/"; \
-		echo "Or use nvm: https://github.com/nvm-sh/nvm"; \
+		echo "⚠ Node.js is not installed (optional - Bun is the primary runtime)"; \
 	fi
 
 check-bun: ## Check if Bun is installed
@@ -93,49 +112,50 @@ check-bun: ## Check if Bun is installed
 		echo "Alternatively, refresh your shell: exec $$SHELL"; \
 	fi
 
-check-typescript: ## Check if TypeScript is installed
+check-typescript: ## Check if TypeScript is installed (optional - uses local tsc from node_modules)
 	@echo "Checking TypeScript..."
 	@if command -v tsc >/dev/null 2>&1; then \
-		echo "✓ TypeScript ($(shell tsc --version)) is installed"; \
+		echo "✓ TypeScript ($(shell tsc --version 2>/dev/null || echo 'N/A')) is installed globally"; \
 	else \
-		echo "✗ TypeScript is NOT installed globally"; \
-		echo ""; \
-		echo "To install TypeScript globally, run:"; \
-		echo "  npm install -g typescript"; \
+		echo "⚠ TypeScript is not installed globally (will use local node_modules version)"; \
 	fi
 
 # Development
-dev: ## Start all services (Tauri + Bun + Vite)
+dev: ## Start all services (Tauri + Bun + Vite) with logging
 	@$(MAKE) check-prereqs
-	@echo "Starting Bun backend server in background..."
-	@$(MAKE) start-bun &
+	@$(MAKE) logs-clear
+	@echo "Starting Bun backend server in background (logging to $(LOGS_DIR)/api.log)..."
+	@$(MAKE) start-bun 2>&1 | tee -a $(LOGS_DIR)/api.log &
 	@sleep 2
 	@echo "Starting Tauri (which will start Vite)..."
-	@npm run tauri dev
+	@echo "Frontend logs: $(LOGS_DIR)/frontend.log"
+	@echo "Tauri logs: $(LOGS_DIR)/tauri.log"
+	@echo ""
+	@echo "TIP: Run 'make logs-tail' in another terminal to watch all logs"
+	@echo ""
+	@bun run tauri dev 2>&1 | tee -a $(LOGS_DIR)/tauri.log
 	@wait
 
 start-bun: ## Start Bun backend server on localhost:3000
-	@echo "Starting Bun backend server on localhost:3000..."
+	@echo "[$(shell date '+%Y-%m-%d %H:%M:%S')] Starting Bun backend server on localhost:3000..."
 	@cd api && bun run server.ts
 
 start-vite: ## Start Vite dev server
 	@echo "Starting Vite dev server..."
-	@npm run dev
+	@bun run dev
 
 check-prereqs: ## Quick check that all prerequisites are installed
 	@echo "Checking prerequisites..."
 	@command -v rustc >/dev/null 2>&1 || (echo "ERROR: Rust is not installed. Run 'make install-prereqs'." && exit 1)
 	@command -v cargo >/dev/null 2>&1 || (echo "ERROR: Cargo is not installed. Run 'make install-prereqs'." && exit 1)
-	@command -v node >/dev/null 2>&1 || (echo "ERROR: Node.js is not installed. Run 'make install-prereqs'." && exit 1)
 	@command -v bun >/dev/null 2>&1 || (echo "ERROR: Bun is not installed. Run 'make install-prereqs'." && exit 1)
-	@command -v tsc >/dev/null 2>&1 || (echo "ERROR: TypeScript is not installed. Run 'npm install -g typescript'." && exit 1)
 	@echo "✓ All prerequisites installed"
 
 # Build
 build: ## Build Tauri application for current platform
 	@$(MAKE) check-prereqs
 	@echo "Building Tauri application..."
-	@npm run build
+	@bun run build
 
 # Clean
 clean: ## Remove build artifacts and temporary files
@@ -169,11 +189,11 @@ test-backend: ## Run backend tests with Bun test runner
 
 test-frontend: ## Run frontend tests with Jest
 	@echo "Running frontend tests (Jest)..."
-	@npm test
+	@bun test
 
 test-e2e: ## Run E2E tests with Playwright
 	@echo "Running E2E tests (Playwright)..."
-	@cd src && npx playwright test
+	@cd src && bunx playwright test
 
 # Quality
 lint: ## Run ESLint checks
@@ -187,11 +207,11 @@ lint-backend: ## Lint backend TypeScript
 
 lint-frontend: ## Lint frontend TypeScript and Svelte
 	@echo "Linting frontend (src/)..."
-	@npx eslint src/ --ext .ts,.tsx,.svelte
+	@bunx eslint src/ --ext .ts,.tsx,.svelte
 
 format: ## Format all files with Prettier
 	@echo "Formatting files..."
-	@npx prettier --write "**/*.{ts,tsx,svelte,json,md}"
+	@bunx prettier --write "**/*.{ts,tsx,svelte,json,md}"
 	@echo "Format complete"
 
 # Smoke test (build system validation)
@@ -201,7 +221,6 @@ smoke-test: ## Validate Bun, Svelte, and Tauri integration
 
 # Installation
 install-dev: ## Install all development dependencies
-	@$(MAKE) check-typescript
 	@echo "Installing development dependencies..."
 	@make install-bun
 	@make install-npm
@@ -214,6 +233,6 @@ install-bun: ## Install Bun backend dependencies
 	@echo "Installing Bun dependencies (api/)..."
 	@cd api && bun install
 
-install-npm: ## Install npm dependencies (frontend, Tauri, tools)
-	@echo "Installing npm dependencies..."
-	@npm install
+install-npm: ## Install npm dependencies (frontend, Tauri, tools) using Bun
+	@echo "Installing npm dependencies with Bun..."
+	@bun install
