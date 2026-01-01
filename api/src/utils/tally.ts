@@ -115,3 +115,74 @@ export function calculateCategoryIncomeSubtotal(incomes: IncomeInstance[]): { ex
     actual: incomes.reduce((sum, i) => sum + getEffectiveIncomeAmount(i), 0)
   };
 }
+
+/**
+ * Calculate tally for regular bills only (non-adhoc, with expected amounts)
+ * 
+ * @param bills - Array of all bill instances
+ * @returns SectionTally for regular bills
+ */
+export function calculateRegularBillsTally(bills: BillInstance[]): SectionTally {
+  const regularBills = bills.filter(b => !b.is_adhoc);
+  return calculateBillsTally(regularBills);
+}
+
+/**
+ * Calculate tally for ad-hoc bills only
+ * Ad-hoc bills have no expected amount, only actual
+ * 
+ * @param bills - Array of all bill instances
+ * @returns SectionTally for ad-hoc bills (expected=0, remaining=0)
+ */
+export function calculateAdhocBillsTally(bills: BillInstance[]): SectionTally {
+  const adhocBills = bills.filter(b => b.is_adhoc);
+  const actual = adhocBills.reduce((sum, b) => sum + getEffectiveBillAmount(b), 0);
+  return {
+    expected: 0,  // Ad-hoc items have no expected amount
+    actual,
+    remaining: 0  // No remaining since no expected
+  };
+}
+
+/**
+ * Calculate tally for regular income only (non-adhoc, with expected amounts)
+ * 
+ * @param incomes - Array of all income instances
+ * @returns SectionTally for regular income
+ */
+export function calculateRegularIncomeTally(incomes: IncomeInstance[]): SectionTally {
+  const regularIncomes = incomes.filter(i => !i.is_adhoc);
+  return calculateIncomeTally(regularIncomes);
+}
+
+/**
+ * Calculate tally for ad-hoc income only
+ * Ad-hoc income has no expected amount, only actual
+ * 
+ * @param incomes - Array of all income instances
+ * @returns SectionTally for ad-hoc income (expected=0, remaining=0)
+ */
+export function calculateAdhocIncomeTally(incomes: IncomeInstance[]): SectionTally {
+  const adhocIncomes = incomes.filter(i => i.is_adhoc);
+  const actual = adhocIncomes.reduce((sum, i) => sum + getEffectiveIncomeAmount(i), 0);
+  return {
+    expected: 0,  // Ad-hoc items have no expected amount
+    actual,
+    remaining: 0  // No remaining since no expected
+  };
+}
+
+/**
+ * Combine two section tallies
+ * 
+ * @param a - First tally
+ * @param b - Second tally
+ * @returns Combined tally
+ */
+export function combineTallies(a: SectionTally, b: SectionTally): SectionTally {
+  return {
+    expected: a.expected + b.expected,
+    actual: a.actual + b.actual,
+    remaining: a.remaining + b.remaining
+  };
+}

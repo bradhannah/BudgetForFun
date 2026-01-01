@@ -2,7 +2,7 @@
 
 import { CategoriesService, CategoriesServiceImpl } from '../../services/categories-service';
 import { formatErrorForUser } from '../../utils/errors';
-import type { Category } from '../../types';
+import type { Category, CategoryType } from '../../types';
 
 const categoriesService: CategoriesService = new CategoriesServiceImpl();
 
@@ -147,6 +147,58 @@ export function createCategoriesHandlerDELETE() {
       return new Response(JSON.stringify({
         error: formatErrorForUser(error),
         message: 'Failed to delete category'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  };
+}
+
+/**
+ * Reorder categories of a specific type
+ * Body: { type: 'bill' | 'income', orderedIds: string[] }
+ */
+export function createCategoriesReorderHandler() {
+  return async (request: Request) => {
+    try {
+      const body = await request.json();
+      const { type, orderedIds } = body;
+      
+      // Validate type
+      if (!type || !['bill', 'income'].includes(type)) {
+        return new Response(JSON.stringify({
+          error: 'Invalid type',
+          message: 'Type must be "bill" or "income"'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      // Validate orderedIds
+      if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        return new Response(JSON.stringify({
+          error: 'Invalid orderedIds',
+          message: 'orderedIds must be a non-empty array of category IDs'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      const reorderedCategories = await categoriesService.reorder(type as CategoryType, orderedIds);
+      
+      return new Response(JSON.stringify(reorderedCategories), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (error) {
+      console.error('[CategoriesHandler] Reorder failed:', error);
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to reorder categories'
       }), {
         headers: { 'Content-Type': 'application/json' },
         status: 500

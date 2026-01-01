@@ -1,8 +1,15 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import type { IncomeInstanceDetailed } from '../../stores/detailed-month';
+  import MakeRegularDrawer from './MakeRegularDrawer.svelte';
   
   export let income: IncomeInstanceDetailed;
+  export let month: string = '';
   export let onTogglePaid: ((id: string) => void) | null = null;
+  
+  const dispatch = createEventDispatcher();
+  
+  let showMakeRegularDrawer = false;
   
   function formatCurrency(cents: number): string {
     const dollars = cents / 100;
@@ -21,6 +28,14 @@
   
   $: showAmber = income.actual_amount !== null && income.actual_amount !== income.expected_amount;
   $: displayActual = income.actual_amount ?? 0;
+  
+  function handleMakeRegular() {
+    showMakeRegularDrawer = true;
+  }
+  
+  function handleConverted() {
+    dispatch('refresh');
+  }
 </script>
 
 <div class="income-row" class:received={income.is_paid} class:overdue={income.is_overdue} class:adhoc={income.is_adhoc}>
@@ -43,6 +58,9 @@
         {income.name}
         {#if income.is_adhoc}
           <span class="badge adhoc-badge">ad-hoc</span>
+          <button class="make-regular-link" on:click={handleMakeRegular}>
+            Make Regular
+          </button>
         {/if}
         {#if income.is_overdue}
           <span class="badge overdue-badge">overdue</span>
@@ -75,6 +93,20 @@
     </div>
   </div>
 </div>
+
+<!-- Make Regular Drawer (for ad-hoc items) -->
+{#if income.is_adhoc}
+  <MakeRegularDrawer
+    bind:open={showMakeRegularDrawer}
+    {month}
+    type="income"
+    instanceId={income.id}
+    instanceName={income.name}
+    instanceAmount={income.actual_amount || income.expected_amount}
+    on:converted={handleConverted}
+    on:close={() => showMakeRegularDrawer = false}
+  />
+{/if}
 
 <style>
   .income-row {
@@ -170,6 +202,22 @@
   .adhoc-badge {
     background: rgba(167, 139, 250, 0.2);
     color: #a78bfa;
+  }
+  
+  .make-regular-link {
+    background: none;
+    border: none;
+    color: #a78bfa;
+    font-size: 0.7rem;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+  }
+  
+  .make-regular-link:hover {
+    opacity: 1;
   }
   
   .overdue-badge {

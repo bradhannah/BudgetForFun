@@ -82,12 +82,27 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     const lastRouteSegment = routeSegments[routeSegments.length - 1];
     const lastRequestSegment = requestSegments[requestSegments.length - 1];
     if (lastRouteSegment === lastRequestSegment) {
+      let case2Match = true;
       for (let i = 0; i < routeSegments.length - 1; i++) {
         if (routeSegments[i] !== requestSegments[i]) {
-          return false;
+          case2Match = false;
+          break;
         }
       }
-      return true;
+      if (case2Match) return true;
+    }
+    
+    // Case 3: adhoc pattern - month at pos 2, last two segments match
+    //   Route: [api, months, adhoc, bills] (4 segments)
+    //   Request: [api, months, 2025-01, adhoc, bills] (5 segments)
+    //   Match: route[0,1] == req[0,1], route[2,3] == req[3,4]
+    if (routeSegments.length >= 4 && routeSegments[2] === 'adhoc') {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // adhoc
+          routeSegments[3] === requestSegments[4]) {    // bills|incomes
+        return true;
+      }
     }
   }
   
@@ -101,6 +116,10 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     //   e.g., /api/months/bills/reset -> /api/months/2025-01/bills/UUID/reset
     //   Route: [api, months, bills, reset]
     //   Request: [api, months, 2025-01, bills, UUID, reset]
+    // Case 3: month after position 1, ID before last segment (adhoc pattern)
+    //   e.g., /api/months/adhoc/bills/make-regular -> /api/months/2025-01/adhoc/bills/UUID/make-regular
+    //   Route: [api, months, adhoc, bills, make-regular]
+    //   Request: [api, months, 2025-01, adhoc, bills, UUID, make-regular]
     
     // Try Case 1 first: route's last segment matches request's second-to-last
     const lastRouteSegment = routeSegments[routeSegments.length - 1];
@@ -108,12 +127,14 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     
     if (lastRouteSegment === secondToLastRequestSegment) {
       // Check prefix matches (all segments before the last route segment)
+      let case1Match = true;
       for (let i = 0; i < routeSegments.length - 1; i++) {
         if (routeSegments[i] !== requestSegments[i]) {
-          return false;
+          case1Match = false;
+          break;
         }
       }
-      return true;
+      if (case1Match) return true;
     }
     
     // Try Case 2: route's last segment matches request's last, and second-to-last matches
@@ -123,12 +144,42 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     
     if (lastRouteSegment === lastRequestSegment && secondToLastRouteSegment === thirdToLastRequestSegment) {
       // Check prefix matches (all segments before the second-to-last route segment)
+      let case2Match = true;
       for (let i = 0; i < routeSegments.length - 2; i++) {
         if (routeSegments[i] !== requestSegments[i]) {
-          return false;
+          case2Match = false;
+          break;
         }
       }
-      return true;
+      if (case2Match) return true;
+    }
+    
+    // Try Case 3: adhoc pattern - month at pos 2, id before last segment
+    //   Route: [api, months, adhoc, bills, make-regular] (5 segments)
+    //   Request: [api, months, 2025-01, adhoc, bills, UUID, make-regular] (7 segments)
+    //   Match: route[0,1] == req[0,1], route[2,3] == req[3,4], route[4] == req[6]
+    if (routeSegments.length >= 5 && routeSegments[2] === 'adhoc') {
+      // Verify structure: api/months match, adhoc/bills|incomes match, action matches
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // adhoc
+          routeSegments[3] === requestSegments[4] &&    // bills|incomes
+          lastRouteSegment === lastRequestSegment) {    // make-regular
+        return true;
+      }
+    }
+    
+    // Try Case 4: adhoc pattern with ID at end (for PUT/DELETE)
+    //   Route: [api, months, adhoc, bills] (4 segments)
+    //   Request: [api, months, 2025-01, adhoc, bills, UUID] (6 segments)
+    //   Match: route[0,1] == req[0,1], route[2,3] == req[3,4]
+    if (routeSegments.length === 4 && routeSegments[2] === 'adhoc') {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // adhoc
+          routeSegments[3] === requestSegments[4]) {    // bills|incomes
+        return true;
+      }
     }
   }
   
@@ -157,12 +208,14 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
       const fourthRequestSegment = requestSegments[3];
       if (thirdRouteSegment === fourthRequestSegment) {
         // Check prefix matches
+        let patternAMatch = true;
         for (let i = 0; i < 2; i++) {
           if (routeSegments[i] !== requestSegments[i]) {
-            return false;
+            patternAMatch = false;
+            break;
           }
         }
-        return true;
+        if (patternAMatch) return true;
       }
     }
     
@@ -170,12 +223,14 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     const thirdToLastRequestSegment = requestSegments[requestSegments.length - 3];
     if (lastRouteSegment === lastRequestSegment && secondToLastRouteSegment === thirdToLastRequestSegment) {
       // Check prefix matches (all segments before the second-to-last route segment)
+      let patternBMatch = true;
       for (let i = 0; i < routeSegments.length - 2; i++) {
         if (routeSegments[i] !== requestSegments[i]) {
-          return false;
+          patternBMatch = false;
+          break;
         }
       }
-      return true;
+      if (patternBMatch) return true;
     }
   }
   

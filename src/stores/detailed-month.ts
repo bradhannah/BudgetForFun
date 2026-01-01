@@ -68,15 +68,31 @@ export interface SectionTally {
   remaining: number;
 }
 
+export interface LeftoverBreakdown {
+  bankBalances: number;
+  actualIncome: number;
+  actualBills: number;
+  variableExpenses: number;
+  freeFlowingExpenses: number;
+  totalExpenses: number;
+  leftover: number;
+  hasActuals: boolean;
+}
+
 export interface DetailedMonthData {
   month: string;
   billSections: CategorySection[];
   incomeSections: CategorySection[];
   tallies: {
-    bills: SectionTally;
-    income: SectionTally;
+    bills: SectionTally;           // Regular bills (with expected amounts)
+    adhocBills: SectionTally;      // Ad-hoc bills (actual only)
+    totalExpenses: SectionTally;   // Combined total
+    income: SectionTally;          // Regular income
+    adhocIncome: SectionTally;     // Ad-hoc income
+    totalIncome: SectionTally;     // Combined total
   };
   leftover: number;
+  leftoverBreakdown: LeftoverBreakdown;
   bankBalances: Record<string, number>;
   lastUpdated: string;
 }

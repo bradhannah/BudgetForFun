@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { goto } from '$app/navigation';
   import { detailedMonth, detailedMonthData, detailedMonthLoading, detailedMonthError } from '../../stores/detailed-month';
   import CategorySection from './CategorySection.svelte';
   import SectionTally from './SectionTally.svelte';
+  import SummaryFooter from './SummaryFooter.svelte';
   import { success, error as showError } from '../../stores/toast';
   
   export let month: string;
@@ -20,6 +22,26 @@
     const [year, monthNum] = monthStr.split('-');
     const date = new Date(parseInt(year), parseInt(monthNum) - 1);
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+  
+  function getPrevMonth(monthStr: string): string {
+    const [year, monthNum] = monthStr.split('-').map(Number);
+    const date = new Date(year, monthNum - 2); // -2 because months are 0-indexed and we want prev
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+  
+  function getNextMonth(monthStr: string): string {
+    const [year, monthNum] = monthStr.split('-').map(Number);
+    const date = new Date(year, monthNum); // monthNum (not -1) gives us next month
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+  
+  function navigateToPrev() {
+    goto(`/month/${getPrevMonth(month)}`);
+  }
+  
+  function navigateToNext() {
+    goto(`/month/${getNextMonth(month)}`);
   }
   
   async function handleToggleBillPaid(instanceId: string) {
@@ -87,15 +109,34 @@
         </svg>
         Dashboard
       </a>
-      <h1>{formatMonthDisplay(month)}</h1>
+      <div class="month-nav">
+        <button class="nav-arrow" on:click={navigateToPrev} title="Previous month">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <h1>{formatMonthDisplay(month)}</h1>
+        <button class="nav-arrow" on:click={navigateToNext} title="Next month">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
     </div>
     
     {#if $detailedMonthData}
       <div class="header-summary">
-        <div class="leftover-display" class:negative={leftoverClass === 'negative'}>
-          <span class="leftover-label">Leftover</span>
-          <span class="leftover-value">{formatCurrency($detailedMonthData.leftover)}</span>
-        </div>
+        {#if $detailedMonthData.leftoverBreakdown.hasActuals}
+          <div class="leftover-display" class:negative={leftoverClass === 'negative'}>
+            <span class="leftover-label">Leftover</span>
+            <span class="leftover-value">{formatCurrency($detailedMonthData.leftover)}</span>
+          </div>
+        {:else}
+          <div class="leftover-display muted">
+            <span class="leftover-label">Leftover</span>
+            <span class="leftover-hint">Enter actuals</span>
+          </div>
+        {/if}
       </div>
     {/if}
   </header>
@@ -115,34 +156,56 @@
       <section class="section bills-section">
         <div class="section-header">
           <h2>Bills</h2>
-          <SectionTally tally={$detailedMonthData.tallies.bills} type="bills" />
         </div>
         
         {#if $detailedMonthData.billSections.length === 0}
           <p class="empty-text">No bills for this month.</p>
         {:else}
-          {#each $detailedMonthData.billSections as section (section.category.id)}
+          {#each $detailedMonthData.billSections.filter(s => s.items.length > 0) as section (section.category.id)}
             <CategorySection {section} type="bills" {month} onTogglePaid={handleToggleBillPaid} on:refresh={() => detailedMonth.refresh()} />
           {/each}
         {/if}
+        
+        <!-- Bills Summary -->
+        <div class="section-summary">
+          <SectionTally tally={$detailedMonthData.tallies.bills} type="bills" label="Regular Bills" />
+          {#if $detailedMonthData.tallies.adhocBills.actual > 0}
+            <SectionTally tally={$detailedMonthData.tallies.adhocBills} type="bills" label="Ad-hoc" />
+          {/if}
+          <SectionTally tally={$detailedMonthData.tallies.totalExpenses} type="bills" label="Total Expenses" />
+        </div>
       </section>
       
       <!-- Income Section -->
       <section class="section income-section">
         <div class="section-header">
           <h2>Income</h2>
-          <SectionTally tally={$detailedMonthData.tallies.income} type="income" />
         </div>
         
         {#if $detailedMonthData.incomeSections.length === 0}
           <p class="empty-text">No income for this month.</p>
         {:else}
-          {#each $detailedMonthData.incomeSections as section (section.category.id)}
+          {#each $detailedMonthData.incomeSections.filter(s => s.items.length > 0) as section (section.category.id)}
             <CategorySection {section} type="income" {month} onTogglePaid={handleToggleIncomePaid} on:refresh={() => detailedMonth.refresh()} />
           {/each}
         {/if}
+        
+        <!-- Income Summary -->
+        <div class="section-summary">
+          <SectionTally tally={$detailedMonthData.tallies.income} type="income" label="Regular Income" />
+          {#if $detailedMonthData.tallies.adhocIncome.actual > 0}
+            <SectionTally tally={$detailedMonthData.tallies.adhocIncome} type="income" label="Ad-hoc" />
+          {/if}
+          <SectionTally tally={$detailedMonthData.tallies.totalIncome} type="income" label="Total Income" />
+        </div>
       </section>
     </div>
+    
+    <!-- Summary Footer with Leftover Calculation -->
+    <SummaryFooter 
+      breakdown={$detailedMonthData.leftoverBreakdown} 
+      bankBalancesMap={$detailedMonthData.bankBalances} 
+    />
   {/if}
 </div>
 
@@ -179,6 +242,32 @@
   }
   
   .back-link:hover {
+    color: #24c8db;
+  }
+  
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .nav-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid #333355;
+    border-radius: 8px;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .nav-arrow:hover {
+    background: rgba(36, 200, 219, 0.1);
+    border-color: #24c8db;
     color: #24c8db;
   }
   
@@ -225,6 +314,17 @@
   
   .leftover-display.negative .leftover-value {
     color: #f87171;
+  }
+  
+  .leftover-display.muted {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: #333355;
+  }
+  
+  .leftover-hint {
+    font-size: 0.875rem;
+    color: #666;
+    font-style: italic;
   }
   
   .sections-container {
@@ -286,6 +386,15 @@
     color: #666;
     text-align: center;
     padding: 40px 20px;
+  }
+  
+  .section-summary {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #333355;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
   
   @media (min-width: 1024px) {

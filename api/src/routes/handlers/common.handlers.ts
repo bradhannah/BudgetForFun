@@ -26,7 +26,6 @@ export function createTestHandler() {
 
 export function createHotReloadHandler() {
   return async () => {
-    console.log('Hot reload endpoint called');
     return new Response(JSON.stringify({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),

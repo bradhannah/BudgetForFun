@@ -7,12 +7,19 @@
       "month": "2025-12",
       "amount": 150000,
       "expected_amount": 150000,
-      "payments": [],
+      "payments": [
+        {
+          "id": "9562270c-7581-482a-b876-b6812a6a762a",
+          "amount": 150000,
+          "date": "2025-12-31",
+          "created_at": "2025-12-31T22:33:52.911Z"
+        }
+      ],
       "is_default": false,
-      "is_paid": false,
+      "is_paid": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:15:13.143Z",
-      "updated_at": "2025-12-31T22:01:36.700Z"
+      "updated_at": "2025-12-31T22:33:52.911Z"
     },
     {
       "id": "2e2b8198-f65f-4e1d-ad12-350f4436ecdd",
@@ -61,10 +68,10 @@
       "expected_amount": 100000,
       "payments": [],
       "is_default": true,
-      "is_paid": false,
+      "is_paid": true,
       "is_adhoc": false,
       "created_at": "2025-12-31T14:19:56.905Z",
-      "updated_at": "2025-12-31T14:19:56.905Z"
+      "updated_at": "2025-12-31T22:34:01.590Z"
     },
     {
       "id": "ae939218-c135-4545-94e7-bef87309f331",
@@ -91,6 +98,67 @@
       "is_adhoc": false,
       "created_at": "2025-12-31T14:20:39.788Z",
       "updated_at": "2025-12-31T22:07:08.574Z"
+    },
+    {
+      "id": "b7349db3-db31-48f4-8811-42a2f7ba87de",
+      "bill_id": null,
+      "month": "2025-12",
+      "amount": 50000,
+      "expected_amount": 0,
+      "actual_amount": 55000,
+      "payments": [],
+      "is_default": false,
+      "is_paid": true,
+      "is_adhoc": true,
+      "name": "Car Repair",
+      "category_id": "1597bcda-dd74-47b1-a7e8-9e454afd58f2",
+      "created_at": "2025-12-31T22:42:55.063Z",
+      "updated_at": "2025-12-31T22:43:01.350Z"
+    },
+    {
+      "id": "52928720-3c54-4e70-aa4e-407e9a1bfcf2",
+      "bill_id": null,
+      "month": "2025-12",
+      "amount": 15000,
+      "expected_amount": 0,
+      "actual_amount": 15000,
+      "payments": [],
+      "is_default": false,
+      "is_paid": true,
+      "is_adhoc": true,
+      "name": "Insurance Payment",
+      "category_id": "1597bcda-dd74-47b1-a7e8-9e454afd58f2",
+      "created_at": "2025-12-31T22:43:35.933Z",
+      "updated_at": "2025-12-31T23:43:24.438Z"
+    },
+    {
+      "id": "0eb3e641-34f4-40b5-8618-a6bb28099e70",
+      "bill_id": "4fea7170-5c52-4982-ba25",
+      "month": "2025-12",
+      "amount": 15000,
+      "expected_amount": 15000,
+      "actual_amount": 15000,
+      "payments": [],
+      "is_default": false,
+      "is_paid": true,
+      "is_adhoc": true,
+      "name": "Insurance Payment",
+      "category_id": "1597bcda-dd74-47b1-a7e8-9e454afd58f2",
+      "created_at": "2025-12-31T22:45:31.508Z",
+      "updated_at": "2026-01-01T00:40:08.194Z"
+    },
+    {
+      "id": "0f84a85b-629c-40cd-aff9-4dac01caf2bf",
+      "bill_id": "1cea7e8d-a233-48fc-bc81",
+      "month": "2025-12",
+      "amount": 2500,
+      "expected_amount": 2500,
+      "payments": [],
+      "is_default": true,
+      "is_paid": false,
+      "is_adhoc": false,
+      "created_at": "2025-12-31T23:07:47.187Z",
+      "updated_at": "2025-12-31T23:07:47.187Z"
     }
   ],
   "income_instances": [
@@ -165,6 +233,36 @@
       "is_adhoc": false,
       "created_at": "2025-12-31T16:13:49.286Z",
       "updated_at": "2025-12-31T16:13:49.286Z"
+    },
+    {
+      "id": "09a1c964-91a4-41a7-a998-ed331cf4c87d",
+      "income_id": null,
+      "month": "2025-12",
+      "amount": 200000,
+      "expected_amount": 0,
+      "actual_amount": 200000,
+      "is_default": false,
+      "is_paid": true,
+      "is_adhoc": true,
+      "name": "Bonus Payment",
+      "category_id": "d1456663-61bc-4c1a-bec6-7cd05dfb07c6",
+      "created_at": "2025-12-31T22:45:48.440Z",
+      "updated_at": "2025-12-31T23:26:44.882Z"
+    },
+    {
+      "id": "800be64f-806c-4600-894c-e2b471c4a151",
+      "income_id": null,
+      "month": "2025-12",
+      "amount": 75000,
+      "expected_amount": 0,
+      "actual_amount": 80000,
+      "is_default": false,
+      "is_paid": true,
+      "is_adhoc": true,
+      "name": "Freelance Gig",
+      "category_id": "d1456663-61bc-4c1a-bec6-7cd05dfb07c6",
+      "created_at": "2025-12-31T22:45:48.449Z",
+      "updated_at": "2025-12-31T22:45:48.459Z"
     }
   ],
   "variable_expenses": [
@@ -190,5 +288,5 @@
   "free_flowing_expenses": [],
   "bank_balances": {},
   "created_at": "2025-12-30T18:08:31.732Z",
-  "updated_at": "2025-12-31T22:01:36.700Z"
+  "updated_at": "2026-01-01T00:40:08.194Z"
 }

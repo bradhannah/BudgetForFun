@@ -29,10 +29,15 @@ import { calculateDueDate, isOverdue, getDaysOverdue } from '../utils/due-date';
 import { 
   calculateBillsTally, 
   calculateIncomeTally,
+  calculateRegularBillsTally,
+  calculateAdhocBillsTally,
+  calculateRegularIncomeTally,
+  calculateAdhocIncomeTally,
+  combineTallies,
   getEffectiveBillAmount,
   getEffectiveIncomeAmount
 } from '../utils/tally';
-import { calculateLeftover } from '../utils/leftover';
+import { calculateLeftover, calculateLeftoverBreakdown, hasActualsEntered } from '../utils/leftover';
 
 export interface DetailedViewService {
   getDetailedMonth(month: string): Promise<DetailedMonthResponse>;
@@ -94,12 +99,19 @@ export class DetailedViewServiceImpl implements DetailedViewService {
     const billSections = this.groupBillsByCategory(detailedBillInstances, billCategories, billsMap);
     const incomeSections = this.groupIncomesByCategory(detailedIncomeInstances, incomeCategories, incomesMap);
 
-    // Calculate tallies
-    const billsTally = calculateBillsTally(monthlyData.bill_instances);
-    const incomeTally = calculateIncomeTally(monthlyData.income_instances);
+    // Calculate tallies with breakdown
+    const billsTally = calculateRegularBillsTally(monthlyData.bill_instances);
+    const adhocBillsTally = calculateAdhocBillsTally(monthlyData.bill_instances);
+    const totalExpensesTally = combineTallies(billsTally, adhocBillsTally);
+    
+    const incomeTally = calculateRegularIncomeTally(monthlyData.income_instances);
+    const adhocIncomeTally = calculateAdhocIncomeTally(monthlyData.income_instances);
+    const totalIncomeTally = combineTallies(incomeTally, adhocIncomeTally);
 
-    // Calculate leftover
+    // Calculate leftover and breakdown
     const leftover = calculateLeftover(monthlyData);
+    const breakdown = calculateLeftoverBreakdown(monthlyData);
+    const hasActuals = hasActualsEntered(monthlyData);
 
     return {
       month,
@@ -107,9 +119,17 @@ export class DetailedViewServiceImpl implements DetailedViewService {
       incomeSections,
       tallies: {
         bills: billsTally,
-        income: incomeTally
+        adhocBills: adhocBillsTally,
+        totalExpenses: totalExpensesTally,
+        income: incomeTally,
+        adhocIncome: adhocIncomeTally,
+        totalIncome: totalIncomeTally
       },
       leftover,
+      leftoverBreakdown: {
+        ...breakdown,
+        hasActuals
+      },
       bankBalances: monthlyData.bank_balances,
       lastUpdated: monthlyData.updated_at
     };

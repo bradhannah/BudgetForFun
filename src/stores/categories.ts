@@ -1,16 +1,23 @@
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '$lib/api/client';
 
+export type CategoryType = 'bill' | 'income';
+
 export interface Category {
   id: string;
   name: string;
   is_predefined: boolean;
+  sort_order: number;
+  color: string;
+  type: CategoryType;
   created_at: string;
   updated_at: string;
 }
 
 export interface CategoryData {
   name: string;
+  type?: CategoryType;
+  color?: string;
 }
 
 type CategoryState = {
@@ -37,6 +44,14 @@ export const predefinedCategories = derived(categories, cats =>
 );
 export const customCategories = derived(categories, cats => 
   cats.filter(c => !c.is_predefined)
+);
+
+// Derived stores for bill vs income categories
+export const billCategories = derived(categories, cats => 
+  cats.filter(c => c.type === 'bill').sort((a, b) => a.sort_order - b.sort_order)
+);
+export const incomeCategories = derived(categories, cats => 
+  cats.filter(c => c.type === 'income').sort((a, b) => a.sort_order - b.sort_order)
 );
 
 export async function loadCategories() {
@@ -87,6 +102,23 @@ export async function deleteCategory(id: string) {
     await loadCategories();
   } catch (e) {
     const err = e instanceof Error ? e : new Error('Failed to delete category');
+    store.update(s => ({ ...s, loading: false, error: err.message }));
+    throw err;
+  }
+}
+
+export async function reorderCategories(type: CategoryType, orderedIds: string[]) {
+  store.update(s => ({ ...s, loading: true, error: null }));
+  
+  try {
+    await fetch('http://localhost:3000/api/categories/reorder', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, orderedIds })
+    });
+    await loadCategories();
+  } catch (e) {
+    const err = e instanceof Error ? e : new Error('Failed to reorder categories');
     store.update(s => ({ ...s, loading: false, error: err.message }));
     throw err;
   }

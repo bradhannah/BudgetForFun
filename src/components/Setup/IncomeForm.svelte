@@ -8,6 +8,7 @@
    */
   import { createIncome, updateIncome } from '../../stores/incomes';
   import { paymentSourcesStore } from '../../stores/payment-sources';
+  import { incomeCategories } from '../../stores/categories';
   import { success, error as showError } from '../../stores/toast';
   import type { Income, IncomeData } from '../../stores/incomes';
 
@@ -32,6 +33,9 @@
   // Due date (optional)
   let due_day: number | '' = editingItem?.due_day || '';
   
+  // Category (optional)
+  let category_id = editingItem?.category_id || '';
+  
   let error = '';
   let saving = false;
 
@@ -51,6 +55,7 @@
     recurrence_week = editingItem.recurrence_week || 1;
     recurrence_day = editingItem.recurrence_day || 0;
     due_day = editingItem.due_day || '';
+    category_id = editingItem.category_id || '';
   }
 
   // Convert dollars to cents
@@ -110,6 +115,11 @@
       // Add due_day if specified
       if (due_day !== '' && typeof due_day === 'number') {
         incomeData.due_day = due_day;
+      }
+      
+      // Add category_id if specified
+      if (category_id) {
+        incomeData.category_id = category_id;
       }
 
       if (editingItem) {
@@ -257,6 +267,17 @@
         <option value={ps.id}>{ps.name}</option>
       {/each}
     </select>
+  </div>
+
+  <div class="form-group">
+    <label for="income-category">Category (Optional)</label>
+    <select id="income-category" bind:value={category_id} disabled={saving || !hasPaymentSources}>
+      <option value="">-- No Category --</option>
+      {#each $incomeCategories as cat}
+        <option value={cat.id}>{cat.name}</option>
+      {/each}
+    </select>
+    <div class="help-text">Group incomes for easier tracking in monthly view</div>
   </div>
 
   <div class="form-group">

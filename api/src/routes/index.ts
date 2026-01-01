@@ -55,7 +55,8 @@ import {
   createCategoriesHandlerGET,
   createCategoriesHandlerPOST,
   createCategoriesHandlerPUT,
-  createCategoriesHandlerDELETE
+  createCategoriesHandlerDELETE,
+  createCategoriesReorderHandler
 } from './handlers/categories.handlers';
 
 import { createSeedDefaultsHandler } from './handlers/seed.handlers';
@@ -80,6 +81,17 @@ import {
   createBackupHandlerPOST,
   createBackupHandlerValidate
 } from './handlers/backup.handlers';
+
+import {
+  createAdhocBillHandlerPOST,
+  createAdhocBillHandlerPUT,
+  createAdhocBillHandlerDELETE,
+  createMakeRegularBillHandler,
+  createAdhocIncomeHandlerPOST,
+  createAdhocIncomeHandlerPUT,
+  createAdhocIncomeHandlerDELETE,
+  createMakeRegularIncomeHandler
+} from './handlers/adhoc.handlers';
 
 // Route definition type
 interface RouteDefinition {
@@ -113,6 +125,7 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/categories', definition: { method: 'POST', handler: createCategoriesHandlerPOST() } },
   { path: '/api/categories', definition: { method: 'PUT', handler: createCategoriesHandlerPUT(), hasPathParam: true } },
   { path: '/api/categories', definition: { method: 'DELETE', handler: createCategoriesHandlerDELETE(), hasPathParam: true } },
+  { path: '/api/categories/reorder', definition: { method: 'PUT', handler: createCategoriesReorderHandler() } },
   
   // Payment Sources
   { path: '/api/payment-sources', definition: { method: 'GET', handler: createPaymentSourcesHandlerGET() } },
@@ -155,6 +168,18 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
   { path: '/api/months/incomes/reset', definition: { method: 'POST', handler: createIncomeInstanceHandlerReset(), hasPathParam: true } },
   { path: '/api/months/incomes/paid', definition: { method: 'POST', handler: createIncomeInstanceHandlerTogglePaid(), hasPathParam: true } },
   { path: '/api/months/incomes', definition: { method: 'PUT', handler: createIncomeInstanceHandlerPUT(), hasPathParam: true } },
+  
+  // Ad-hoc bills - make-regular must come before other adhoc routes
+  { path: '/api/months/adhoc/bills/make-regular', definition: { method: 'POST', handler: createMakeRegularBillHandler(), hasPathParam: true } },
+  { path: '/api/months/adhoc/bills', definition: { method: 'POST', handler: createAdhocBillHandlerPOST(), hasPathParam: true } },
+  { path: '/api/months/adhoc/bills', definition: { method: 'PUT', handler: createAdhocBillHandlerPUT(), hasPathParam: true } },
+  { path: '/api/months/adhoc/bills', definition: { method: 'DELETE', handler: createAdhocBillHandlerDELETE(), hasPathParam: true } },
+  
+  // Ad-hoc incomes - make-regular must come before other adhoc routes
+  { path: '/api/months/adhoc/incomes/make-regular', definition: { method: 'POST', handler: createMakeRegularIncomeHandler(), hasPathParam: true } },
+  { path: '/api/months/adhoc/incomes', definition: { method: 'POST', handler: createAdhocIncomeHandlerPOST(), hasPathParam: true } },
+  { path: '/api/months/adhoc/incomes', definition: { method: 'PUT', handler: createAdhocIncomeHandlerPUT(), hasPathParam: true } },
+  { path: '/api/months/adhoc/incomes', definition: { method: 'DELETE', handler: createAdhocIncomeHandlerDELETE(), hasPathParam: true } },
   
   // Variable expenses
   { path: '/api/months/expenses', definition: { method: 'GET', handler: createExpensesHandlerGET(), hasPathParam: true } },

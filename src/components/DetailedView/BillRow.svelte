@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { BillInstanceDetailed } from '../../stores/detailed-month';
   import AddPaymentModal from './AddPaymentModal.svelte';
+  import MakeRegularDrawer from './MakeRegularDrawer.svelte';
   
   export let bill: BillInstanceDetailed;
   export let month: string = '';
@@ -12,6 +13,7 @@
   
   let showPaymentModal = false;
   let showPaymentsList = false;
+  let showMakeRegularDrawer = false;
   
   function formatCurrency(cents: number): string {
     const dollars = cents / 100;
@@ -45,6 +47,14 @@
   function togglePaymentsList() {
     showPaymentsList = !showPaymentsList;
   }
+  
+  function handleMakeRegular() {
+    showMakeRegularDrawer = true;
+  }
+  
+  function handleConverted() {
+    dispatch('refresh');
+  }
 </script>
 
 <div class="bill-row-container">
@@ -75,6 +85,9 @@
           {bill.name}
           {#if bill.is_adhoc}
             <span class="badge adhoc-badge">ad-hoc</span>
+            <button class="make-regular-link" on:click={handleMakeRegular}>
+              Make Regular
+            </button>
           {/if}
           {#if isPartiallyPaid}
             <span class="badge partial-badge">partial</span>
@@ -156,6 +169,20 @@
   totalPaid={bill.total_paid}
   on:added={handlePaymentAdded}
 />
+
+<!-- Make Regular Drawer (for ad-hoc items) -->
+{#if bill.is_adhoc}
+  <MakeRegularDrawer
+    bind:open={showMakeRegularDrawer}
+    {month}
+    type="bill"
+    instanceId={bill.id}
+    instanceName={bill.name}
+    instanceAmount={bill.actual_amount || bill.expected_amount}
+    on:converted={handleConverted}
+    on:close={() => showMakeRegularDrawer = false}
+  />
+{/if}
 
 <style>
   .bill-row-container {
@@ -265,6 +292,22 @@
   .adhoc-badge {
     background: rgba(167, 139, 250, 0.2);
     color: #a78bfa;
+  }
+  
+  .make-regular-link {
+    background: none;
+    border: none;
+    color: #a78bfa;
+    font-size: 0.7rem;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+  }
+  
+  .make-regular-link:hover {
+    opacity: 1;
   }
   
   .partial-badge {

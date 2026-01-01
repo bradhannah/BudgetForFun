@@ -5,7 +5,7 @@
   import { paymentSourcesStore, loadPaymentSources, deletePaymentSource } from '../../stores/payment-sources';
   import { billsStore, loadBills, deleteBill, activeBillsWithContribution, totalFixedCosts, calculateMonthlyContribution as calculateBillContribution } from '../../stores/bills';
   import { incomesStore, loadIncomes, deleteIncome, activeIncomesWithContribution, totalMonthlyIncome, calculateMonthlyContribution as calculateIncomeContribution } from '../../stores/incomes';
-  import { categoriesStore, loadCategories, deleteCategory } from '../../stores/categories';
+  import { categoriesStore, loadCategories, deleteCategory, billCategories, incomeCategories } from '../../stores/categories';
   import { success, error as showError } from '../../stores/toast';
   
   // Components
@@ -20,6 +20,7 @@
   import CategoryView from './CategoryView.svelte';
   import LoadDefaultsButton from '../shared/LoadDefaultsButton.svelte';
   import ConfirmDialog from '../shared/ConfirmDialog.svelte';
+  import CategoryOrderer from './CategoryOrderer.svelte';
   
   // Types
   import type { PaymentSource } from '../../stores/payment-sources';
@@ -376,6 +377,22 @@
           {/if}
 
         {:else if activeTab === 'categories'}
+          <!-- Category Orderers for drag-and-drop reordering -->
+          <div class="category-orderers">
+            <CategoryOrderer 
+              categories={$billCategories} 
+              type="bill" 
+            />
+            <CategoryOrderer 
+              categories={$incomeCategories} 
+              type="income" 
+            />
+          </div>
+          
+          <div class="categories-divider"></div>
+          
+          <!-- Category list for add/edit/delete -->
+          <h3 class="section-subtitle">Manage Categories</h3>
           {#if $categoriesStore.categories.length === 0}
             <div class="empty-state">
               <p>No categories yet.</p>
@@ -646,6 +663,27 @@
     color: #666;
   }
 
+  /* Category Orderers */
+  .category-orderers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .categories-divider {
+    height: 1px;
+    background: #333355;
+    margin: 24px 0;
+  }
+
+  .section-subtitle {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #888;
+  }
+
   /* Total Row */
   .total-row {
     display: flex;
@@ -747,6 +785,10 @@
 
     .content-header .btn {
       width: 100%;
+    }
+
+    .category-orderers {
+      grid-template-columns: 1fr;
     }
   }
 </style>
