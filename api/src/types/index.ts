@@ -7,7 +7,11 @@
 
 type BillingPeriod = 'monthly' | 'bi_weekly' | 'weekly' | 'semi_annually';
 
-type PaymentSourceType = 'bank_account' | 'credit_card' | 'cash';
+type PaymentSourceType = 'bank_account' | 'credit_card' | 'line_of_credit' | 'cash';
+
+// Helper to determine if a payment source type is a debt account
+// Debt accounts have their balance displayed as negative (money owed)
+const DEBT_ACCOUNT_TYPES: PaymentSourceType[] = ['credit_card', 'line_of_credit'];
 
 type CategoryType = 'bill' | 'income';
 
@@ -400,3 +404,5 @@ export type {
   InstanceEntity,
   ValidationResult
 };
+
+export { DEBT_ACCOUNT_TYPES };

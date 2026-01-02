@@ -16,5 +16,14 @@
     "created_at": "2026-01-02T14:29:14.702Z",
     "updated_at": "2026-01-02T14:29:14.702Z",
     "is_active": true
+  },
+  {
+    "name": "Home Equity LOC",
+    "type": "line_of_credit",
+    "balance": 500000,
+    "id": "44caafdc-2315-4b4d-a600-679b0d1d05c0",
+    "created_at": "2026-01-02T16:05:58.363Z",
+    "updated_at": "2026-01-02T16:05:58.363Z",
+    "is_active": true
   }
 ]

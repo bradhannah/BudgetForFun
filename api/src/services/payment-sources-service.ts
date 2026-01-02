@@ -114,8 +114,8 @@ export class PaymentSourcesServiceImpl implements PaymentSourcesService {
       errors.push('Name cannot exceed 100 characters');
     }
     
-    if (!data.type || !['bank_account', 'credit_card', 'cash'].includes(data.type)) {
-      errors.push('Payment source type must be bank_account, credit_card, or cash');
+    if (!data.type || !['bank_account', 'credit_card', 'line_of_credit', 'cash'].includes(data.type)) {
+      errors.push('Payment source type must be bank_account, credit_card, line_of_credit, or cash');
     }
     
     return {

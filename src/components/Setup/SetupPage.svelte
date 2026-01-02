@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   
   // Stores
-  import { paymentSourcesStore, loadPaymentSources, deletePaymentSource } from '../../stores/payment-sources';
+  import { paymentSourcesStore, loadPaymentSources, deletePaymentSource, isDebtAccount, formatBalanceForDisplay, getTypeDisplayName } from '../../stores/payment-sources';
   import { billsStore, loadBills, deleteBill, activeBillsWithContribution, totalFixedCosts, calculateMonthlyContribution as calculateBillContribution } from '../../stores/bills';
   import { incomesStore, loadIncomes, deleteIncome, activeIncomesWithContribution, totalMonthlyIncome, calculateMonthlyContribution as calculateIncomeContribution } from '../../stores/incomes';
   import { categoriesStore, loadCategories, deleteCategory, billCategories, incomeCategories } from '../../stores/categories';
@@ -310,17 +310,19 @@
             </div>
           {:else}
             {#each $paymentSourcesStore.paymentSources as ps}
+              {@const isDebt = isDebtAccount(ps.type)}
+              {@const displayBalance = formatBalanceForDisplay(ps.balance, ps.type)}
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div class="entity-card clickable" on:click={() => openViewDrawer(ps)}>
                 <div class="card-header">
                   <span class="card-name">{ps.name}</span>
-                  <span class="card-badge">
-                    {#if ps.type === 'bank_account'}Bank Account{:else if ps.type === 'credit_card'}Credit Card{:else}Cash{/if}
+                  <span class="card-badge" class:debt={isDebt}>
+                    {getTypeDisplayName(ps.type)}
                   </span>
                 </div>
-                <div class="card-amount" style="color: #24c8db;">
-                  {formatAmount(ps.balance)}
+                <div class="card-amount" style="color: {displayBalance < 0 ? '#ff6b6b' : '#24c8db'};">
+                  {displayBalance < 0 ? '-' : ''}${Math.abs(displayBalance / 100).toFixed(2)}
                 </div>
                 <div class="card-actions" on:click|stopPropagation>
                     <button class="btn-small btn-secondary" on:click={() => openEditDrawer(ps)}>Edit</button>
@@ -666,6 +668,11 @@
   .card-badge.inactive {
     color: #888;
     background: rgba(136, 136, 136, 0.1);
+  }
+
+  .card-badge.debt {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
   }
 
   .card-meta {

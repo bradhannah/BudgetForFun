@@ -8,6 +8,7 @@ import type {
   MonthlyData,
   PaymentSource 
 } from '../types';
+import { DEBT_ACCOUNT_TYPES } from '../types';
 
 export interface LeftoverResult {
   totalCash: number;
@@ -46,8 +47,9 @@ export class LeftoverServiceImpl implements LeftoverService {
         .filter(ps => ps.type === 'bank_account' || ps.type === 'cash')
         .reduce((sum, ps) => sum + ps.balance, 0);
       
+      // Debt accounts (credit cards, lines of credit) - positive balance = debt owed
       const totalCreditDebt = paymentSources
-        .filter(ps => ps.type === 'credit_card')
+        .filter(ps => DEBT_ACCOUNT_TYPES.includes(ps.type))
         .reduce((sum, ps) => sum + Math.abs(ps.balance), 0);
       
       const netWorth = totalCash - totalCreditDebt;

@@ -206,8 +206,8 @@ export class ValidationServiceImpl implements ValidationService {
       errors.push('Name cannot exceed 100 characters');
     }
     
-    if (!source.type || !['bank_account', 'credit_card', 'cash'].includes(source.type)) {
-      errors.push('Payment source type must be: bank_account, credit_card, or cash');
+    if (!source.type || !['bank_account', 'credit_card', 'line_of_credit', 'cash'].includes(source.type)) {
+      errors.push('Payment source type must be: bank_account, credit_card, line_of_credit, or cash');
     }
     
     return {
@@ -301,7 +301,7 @@ export class ValidationServiceImpl implements ValidationService {
   }
   
   validatePaymentSourceType(type: string): boolean {
-    return ['bank_account', 'credit_card', 'cash'].includes(type);
+    return ['bank_account', 'credit_card', 'line_of_credit', 'cash'].includes(type);
   }
   
   validateDate(dateStr: string): boolean {

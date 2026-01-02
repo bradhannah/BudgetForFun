@@ -6,7 +6,7 @@
    * @prop onSave - Callback after successful save
    * @prop onCancel - Callback to close form without saving
    */
-  import { createPaymentSource, updatePaymentSource } from '../../stores/payment-sources';
+  import { createPaymentSource, updatePaymentSource, isDebtAccount, type PaymentSourceType } from '../../stores/payment-sources';
   import { success, error as showError } from '../../stores/toast';
   import type { PaymentSource } from '../../stores/payment-sources';
 
@@ -16,8 +16,11 @@
 
   // Form state - balance is stored in dollars for user input
   let name = editingItem?.name || '';
-  let type: 'bank_account' | 'credit_card' | 'cash' = editingItem?.type || 'bank_account';
+  let type: PaymentSourceType = editingItem?.type || 'bank_account';
   let balanceDollars = editingItem ? (editingItem.balance / 100).toFixed(2) : '0.00';
+  
+  // Reactive helper for debt account detection
+  $: isDebt = isDebtAccount(type);
   let error = '';
   let saving = false;
 
@@ -86,12 +89,13 @@
     <select id="ps-type" bind:value={type} disabled={saving}>
       <option value="bank_account">Bank Account</option>
       <option value="credit_card">Credit Card</option>
+      <option value="line_of_credit">Line of Credit</option>
       <option value="cash">Cash</option>
     </select>
   </div>
 
   <div class="form-group">
-    <label for="ps-balance">Current Balance</label>
+    <label for="ps-balance">{isDebt ? 'Balance Owed' : 'Current Balance'}</label>
     <div class="amount-input-wrapper">
       <span class="currency-prefix">$</span>
       <input
@@ -103,7 +107,9 @@
         disabled={saving}
       />
     </div>
-    <div class="help-text">For credit cards, enter balance owed as positive</div>
+    {#if isDebt}
+      <div class="help-text">Enter amount owed as positive. Enter negative if you have a credit balance.</div>
+    {/if}
   </div>
 
   <div class="form-actions">

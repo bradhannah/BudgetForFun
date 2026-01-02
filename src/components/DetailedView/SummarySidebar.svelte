@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PaymentSource } from '../../stores/payment-sources';
+  import { isDebtAccount, formatBalanceForDisplay } from '../../stores/payment-sources';
   
   interface Tally {
     expected: number;
@@ -33,12 +34,13 @@
   export let variableExpensesTotal: number = 0;
   
   function formatCurrency(cents: number): string {
-    const dollars = cents / 100;
-    return new Intl.NumberFormat('en-US', {
+    const dollars = Math.abs(cents) / 100;
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
     }).format(dollars);
+    return cents < 0 ? '-' + formatted : formatted;
   }
   
   function formatCurrencyWithSign(cents: number): string {
@@ -46,13 +48,28 @@
     return prefix + formatCurrency(cents);
   }
   
-  // Calculate liquid total (sum of all bank balances)
-  $: liquidTotal = Object.values(bankBalances).reduce((sum, bal) => sum + bal, 0);
-  
-  // Get balance for a payment source
-  function getBalance(sourceId: string): number {
-    return bankBalances[sourceId] ?? 0;
+  // Get balance for a payment source (with display formatting for debt)
+  function getBalance(source: PaymentSource): number {
+    const raw = bankBalances[source.id] ?? source.balance;
+    return raw;
   }
+  
+  function getDisplayBalance(source: PaymentSource): number {
+    const raw = bankBalances[source.id] ?? source.balance;
+    return formatBalanceForDisplay(raw, source.type);
+  }
+  
+  // Separate payment sources by type
+  $: assetAccounts = paymentSources.filter(ps => !isDebtAccount(ps.type));
+  $: debtAccounts = paymentSources.filter(ps => isDebtAccount(ps.type));
+  
+  // Calculate totals
+  $: totalAssets = assetAccounts.reduce((sum, ps) => sum + getBalance(ps), 0);
+  $: totalDebt = debtAccounts.reduce((sum, ps) => sum + getBalance(ps), 0);
+  $: netWorth = totalAssets - totalDebt;
+  
+  // Calculate liquid total (sum of all bank balances - for display, uses display balance)
+  $: liquidTotal = netWorth;
   
   // Income calculations - actuals focused
   $: incomeReceived = tallies?.totalIncome?.actual ?? 0;
@@ -75,29 +92,66 @@
 <aside class="summary-sidebar">
   <!-- Combined: Account Balances, Income, Bills in single box -->
   <div class="sidebar-box">
-    <!-- Account Balances -->
+    <!-- Asset Accounts -->
     <div class="box-section">
-      <h3 class="box-title">Accounts</h3>
+      <h3 class="box-title">Bank Accounts & Cash</h3>
       <div class="balance-list">
-        {#each paymentSources as source (source.id)}
+        {#each assetAccounts as source (source.id)}
           <div class="balance-row">
             <span class="balance-name">{source.name}</span>
-            <span class="balance-value" class:negative={getBalance(source.id) < 0}>
-              {formatCurrency(getBalance(source.id))}
+            <span class="balance-value" class:negative={getDisplayBalance(source) < 0}>
+              {formatCurrency(getDisplayBalance(source))}
             </span>
           </div>
         {/each}
       </div>
-      {#if paymentSources.length > 0}
+      {#if assetAccounts.length > 0}
         <div class="section-subtotal">
-          <span class="subtotal-label">Liquid Total</span>
-          <span class="subtotal-value" class:negative={liquidTotal < 0}>
-            {formatCurrency(liquidTotal)}
+          <span class="subtotal-label">Subtotal</span>
+          <span class="subtotal-value" class:negative={totalAssets < 0}>
+            {formatCurrency(totalAssets)}
           </span>
         </div>
       {:else}
-        <p class="empty-text">No accounts</p>
+        <p class="empty-text">No bank accounts</p>
       {/if}
+    </div>
+    
+    <!-- Debt Accounts -->
+    {#if debtAccounts.length > 0}
+      <div class="section-divider"></div>
+      
+      <div class="box-section">
+        <h3 class="box-title debt-title">Credit & Lines of Credit</h3>
+        <div class="balance-list">
+          {#each debtAccounts as source (source.id)}
+            <div class="balance-row">
+              <span class="balance-name">{source.name}</span>
+              <span class="balance-value negative">
+                {formatCurrency(getDisplayBalance(source))}
+              </span>
+            </div>
+          {/each}
+        </div>
+        <div class="section-subtotal">
+          <span class="subtotal-label">Total Owed</span>
+          <span class="subtotal-value negative">
+            -{formatCurrency(totalDebt)}
+          </span>
+        </div>
+      </div>
+    {/if}
+    
+    <div class="section-divider"></div>
+    
+    <!-- Net Worth -->
+    <div class="box-section">
+      <div class="section-subtotal networth-row">
+        <span class="subtotal-label">Net Worth</span>
+        <span class="subtotal-value" class:negative={netWorth < 0} class:positive={netWorth >= 0}>
+          {formatCurrency(netWorth)}
+        </span>
+      </div>
     </div>
     
     <div class="section-divider"></div>
@@ -223,6 +277,10 @@
     letter-spacing: 0.1em;
   }
   
+  .box-title.debt-title {
+    color: #f87171;
+  }
+  
   .box-section {
     display: flex;
     flex-direction: column;
@@ -258,6 +316,15 @@
   
   .subtotal-value.negative {
     color: #f87171;
+  }
+  
+  .subtotal-value.positive {
+    color: #4ade80;
+  }
+  
+  .networth-row {
+    border-top: none;
+    padding-top: 0;
   }
   
   .subtotal-value.expense {
