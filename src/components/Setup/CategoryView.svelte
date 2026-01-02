@@ -1,0 +1,156 @@
+<script lang="ts">
+  /**
+   * CategoryView - Read-only view of a category
+   * 
+   * @prop item - The category to display
+   * @prop onEdit - Callback to switch to edit mode
+   * @prop onClose - Callback to close the drawer
+   */
+  import type { Category } from '../../stores/categories';
+
+  export let item: Category;
+  export let onEdit: () => void = () => {};
+  export let onClose: () => void = () => {};
+
+  function formatDate(dateString: string): string {
+    return new Date(dateString).toLocaleDateString();
+  }
+</script>
+
+<div class="entity-view">
+  <div class="view-field">
+    <label>Category Name</label>
+    <div class="view-value">{item.name}</div>
+  </div>
+
+  <div class="view-field">
+    <label>Type</label>
+    <div class="view-value">
+      {#if item.is_predefined}
+        <span class="badge predefined">Predefined</span>
+      {:else}
+        <span class="badge custom">Custom</span>
+      {/if}
+    </div>
+  </div>
+
+  <div class="view-field">
+    <label>Created</label>
+    <div class="view-value muted">{formatDate(item.created_at)}</div>
+  </div>
+
+  <div class="view-field">
+    <label>Last Updated</label>
+    <div class="view-value muted">{formatDate(item.updated_at)}</div>
+  </div>
+
+  <div class="view-actions">
+    <button class="btn btn-secondary" on:click={onClose}>
+      Close
+    </button>
+    {#if !item.is_predefined}
+      <button class="btn btn-primary" on:click={onEdit}>
+        Edit
+      </button>
+    {/if}
+  </div>
+
+  {#if item.is_predefined}
+    <div class="info-message">
+      Predefined categories cannot be edited.
+    </div>
+  {/if}
+</div>
+
+<style>
+  .entity-view {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .view-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  label {
+    font-size: 12px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .view-value {
+    font-size: 16px;
+    color: #e4e4e7;
+  }
+
+  .view-value.muted {
+    font-size: 14px;
+    color: #888;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .badge.predefined {
+    background: rgba(136, 136, 136, 0.2);
+    color: #888;
+  }
+
+  .badge.custom {
+    background: rgba(36, 200, 219, 0.2);
+    color: #24c8db;
+  }
+
+  .info-message {
+    background: rgba(136, 136, 136, 0.1);
+    color: #888;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .view-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #333355;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .btn-primary {
+    background: #24c8db;
+    color: #000;
+  }
+
+  .btn-primary:hover {
+    background: #1ab0c9;
+  }
+
+  .btn-secondary {
+    background: #333355;
+    color: #fff;
+  }
+
+  .btn-secondary:hover {
+    background: #444466;
+  }
+</style>

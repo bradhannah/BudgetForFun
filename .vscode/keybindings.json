@@ -1,0 +1,30 @@
+{
+  "key": "ctrl+shift+d",
+  "command": "workbench.action.tasks.runTask",
+  "args": "make: dev (All Services)"
+},
+{
+  "key": "ctrl+shift+b",
+  "command": "workbench.action.tasks.runTask",
+  "args": "make: build (Tauri App)"
+},
+{
+  "key": "ctrl+shift+t",
+  "command": "workbench.action.tasks.runTask",
+  "args": "make: test (All Tests)"
+},
+{
+  "key": "ctrl+shift+s",
+  "command": "workbench.action.tasks.runTask",
+  "args": "make: smoke-test (Build System Validation)"
+},
+{
+  "key": "ctrl+shift+f",
+  "command": "workbench.action.tasks.runTask",
+  "args": "make: format (Prettier)"
+},
+{
+  "key": "ctrl+shift+l",
+  "command": "workbench.action.tasks.runTask",
+  "args": "make: lint (ESLint)"
+}

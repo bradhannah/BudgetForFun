@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "svelte.svelte-vscode",
+    "tauri-apps.tauri-vscode",
+    "ms-vscode.js-debug",
+    "bradlc.vscode-tailwindcss",
+    "usernamehw.errorlens",
+    "wayou.vscode-todo-highlight",
+    "eamodio.gitlens",
+    "streetsidesoftware.code-spell-checker"
+  ]
+}
