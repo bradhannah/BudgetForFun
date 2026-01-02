@@ -4,6 +4,18 @@ use tauri_plugin_shell::process::CommandEvent;
 use tauri::Emitter;
 use tauri::Manager;
 use std::path::PathBuf;
+use std::sync::Mutex;
+
+// Global state to track the sidecar process PID
+struct SidecarState {
+    pid: Option<u32>,
+}
+
+impl Default for SidecarState {
+    fn default() -> Self {
+        Self { pid: None }
+    }
+}
 
 // Sidecar Setup (Phase 3 Implementation):
 // 1. Bun binary downloaded to src-tauri/binaries/bun-sidecar-aarch64-apple-darwin
@@ -17,6 +29,59 @@ use std::path::PathBuf;
 // - Added tauri-plugin-dialog for native folder picker
 // - Added tauri-plugin-fs for file system operations
 // - Modified start_bun_sidecar to accept data_dir parameter
+//
+// Phase 4: Auto-start sidecar on app launch:
+// - Added read_saved_data_dir() to read from Tauri Store
+// - Added relaunch_app command for restart after migration
+// - Added .setup() hook to auto-start sidecar with saved data directory
+
+/// Helper to read saved data directory from Tauri Store
+/// Returns None if no setting saved or on any error
+fn read_saved_data_dir(app: &tauri::AppHandle) -> Option<String> {
+    let config_dir = match app.path().app_config_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            println!("[Tauri] Failed to get app_config_dir: {:?}", e);
+            return None;
+        }
+    };
+    let store_path = config_dir.join("settings.json");
+    
+    println!("[Tauri] Looking for settings at: {:?}", store_path);
+    
+    if !store_path.exists() {
+        println!("[Tauri] Settings file does not exist");
+        return None;
+    }
+    
+    let content = match std::fs::read_to_string(&store_path) {
+        Ok(c) => c,
+        Err(e) => {
+            println!("[Tauri] Failed to read settings file: {:?}", e);
+            return None;
+        }
+    };
+    
+    println!("[Tauri] Settings file content: {}", content);
+    
+    let json: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(j) => j,
+        Err(e) => {
+            println!("[Tauri] Failed to parse settings JSON: {:?}", e);
+            return None;
+        }
+    };
+    
+    let data_dir = json.get("dataDirectory")?.as_str().map(|s| s.to_string());
+    println!("[Tauri] Read dataDirectory: {:?}", data_dir);
+    data_dir
+}
+
+/// Relaunch the app (used after data directory migration)
+#[tauri::command]
+fn relaunch_app(app: tauri::AppHandle) {
+    app.restart();
+}
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -46,10 +111,9 @@ fn get_config_dir(app: tauri::AppHandle) -> Result<String, String> {
         .ok_or("Invalid path encoding".to_string())
 }
 
-/// Start the Bun sidecar with an optional data directory
-/// If data_dir is not provided, uses the default ~/Documents/BudgetForFun/
-#[tauri::command]
-async fn start_bun_sidecar(app: tauri::AppHandle, data_dir: Option<String>) -> Result<String, String> {
+/// Internal function to start the Bun sidecar
+/// Used by both the command and the setup hook
+async fn start_bun_sidecar_internal(app: &tauri::AppHandle, data_dir: Option<String>) -> Result<String, String> {
     // Determine the data directory to use
     let effective_data_dir = match data_dir {
         Some(dir) if !dir.is_empty() => dir,
@@ -90,9 +154,17 @@ async fn start_bun_sidecar(app: tauri::AppHandle, data_dir: Option<String>) -> R
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
         .env("DATA_DIR", &effective_data_dir);
 
-    let (mut rx, mut _child) = sidecar_command
+    let (mut rx, child) = sidecar_command
         .spawn()
         .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+
+    // Store the PID in app state
+    let pid = child.pid();
+    {
+        let state = app.state::<Mutex<SidecarState>>();
+        let mut state_guard = state.lock().unwrap();
+        state_guard.pid = Some(pid);
+    }
 
     let app_clone = app.clone();
     let data_dir_for_log = effective_data_dir.clone();
@@ -110,13 +182,81 @@ async fn start_bun_sidecar(app: tauri::AppHandle, data_dir: Option<String>) -> R
                 }
                 CommandEvent::Terminated(payload) => {
                     let _ = app_clone.emit("bun-sidecar-exited", Some(format!("Exit code: {:?}", payload.code)));
+                    // Clear PID when process exits
+                    let state = app_clone.state::<Mutex<SidecarState>>();
+                    let mut state_guard = state.lock().unwrap();
+                    state_guard.pid = None;
                 }
                 _ => {}
             }
         }
     });
 
-    Ok(format!("Bun sidecar started with DATA_DIR={}", data_dir_for_log))
+    Ok(format!("Bun sidecar started with DATA_DIR={} (PID: {})", data_dir_for_log, pid))
+}
+
+/// Start the Bun sidecar with an optional data directory
+/// If data_dir is not provided, uses the default ~/Documents/BudgetForFun/
+#[tauri::command]
+async fn start_bun_sidecar(app: tauri::AppHandle, data_dir: Option<String>) -> Result<String, String> {
+    start_bun_sidecar_internal(&app, data_dir).await
+}
+
+/// Stop the running Bun sidecar
+#[tauri::command]
+async fn stop_bun_sidecar(app: tauri::AppHandle) -> Result<String, String> {
+    let pid = {
+        let state = app.state::<Mutex<SidecarState>>();
+        let state_guard = state.lock().unwrap();
+        state_guard.pid
+    };
+    
+    match pid {
+        Some(pid) => {
+            // Kill the process using system command
+            #[cfg(unix)]
+            {
+                std::process::Command::new("kill")
+                    .arg("-9")
+                    .arg(pid.to_string())
+                    .output()
+                    .map_err(|e| format!("Failed to kill sidecar: {}", e))?;
+            }
+            #[cfg(windows)]
+            {
+                std::process::Command::new("taskkill")
+                    .arg("/F")
+                    .arg("/PID")
+                    .arg(pid.to_string())
+                    .output()
+                    .map_err(|e| format!("Failed to kill sidecar: {}", e))?;
+            }
+            
+            // Clear the PID
+            {
+                let state = app.state::<Mutex<SidecarState>>();
+                let mut state_guard = state.lock().unwrap();
+                state_guard.pid = None;
+            }
+            
+            Ok(format!("Sidecar stopped (PID: {})", pid))
+        }
+        None => Ok("No sidecar running".to_string())
+    }
+}
+
+/// Restart the Bun sidecar with a new data directory
+#[tauri::command]
+async fn restart_bun_sidecar(app: tauri::AppHandle, data_dir: Option<String>) -> Result<String, String> {
+    // Stop the current sidecar
+    let stop_result = stop_bun_sidecar(app.clone()).await?;
+    let _ = app.emit("bun-sidecar-output", Some(format!("{}", stop_result)));
+    
+    // Wait a bit for the port to be released
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    
+    // Start with new data directory
+    start_bun_sidecar(app, data_dir).await
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -127,12 +267,70 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .manage(Mutex::new(SidecarState::default()))
         .invoke_handler(tauri::generate_handler![
             greet, 
             start_bun_sidecar,
+            stop_bun_sidecar,
+            restart_bun_sidecar,
             get_default_data_dir,
-            get_config_dir
+            get_config_dir,
+            relaunch_app
         ])
+        .setup(|app| {
+            let app_handle = app.handle().clone();
+            
+            // Spawn async task to start sidecar
+            tauri::async_runtime::spawn(async move {
+                // Read saved directory or use default
+                let data_dir = read_saved_data_dir(&app_handle)
+                    .or_else(|| {
+                        dirs::home_dir()
+                            .map(|h| h.join("Documents").join("BudgetForFun"))
+                            .and_then(|p| p.to_str().map(|s| s.to_string()))
+                    });
+                
+                println!("[Tauri Setup] Starting sidecar with data_dir: {:?}", data_dir);
+                
+                // Start the sidecar
+                match start_bun_sidecar_internal(&app_handle, data_dir.clone()).await {
+                    Ok(msg) => {
+                        println!("[Tauri Setup] {}", msg);
+                        
+                        // Wait for the backend to be ready (health check)
+                        let mut attempts = 0;
+                        let max_attempts = 30; // 30 * 200ms = 6 seconds max wait
+                        
+                        loop {
+                            attempts += 1;
+                            
+                            // Try to reach the health endpoint
+                            match reqwest::get("http://localhost:3000/api/health").await {
+                                Ok(response) if response.status().is_success() => {
+                                    println!("[Tauri Setup] Backend is ready after {} attempts", attempts);
+                                    let _ = app_handle.emit("sidecar-ready", ());
+                                    break;
+                                }
+                                _ => {
+                                    if attempts >= max_attempts {
+                                        println!("[Tauri Setup] Backend health check timed out after {} attempts", attempts);
+                                        let _ = app_handle.emit("sidecar-error", "Backend failed to start");
+                                        break;
+                                    }
+                                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("[Tauri Setup] Failed to start sidecar: {}", e);
+                        let _ = app_handle.emit("sidecar-error", e);
+                    }
+                }
+            });
+            
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

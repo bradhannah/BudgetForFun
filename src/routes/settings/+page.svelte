@@ -10,20 +10,28 @@
     loading,
     error,
     isDevelopment,
+    isTauri,
     openFolderPicker,
     validateDirectory,
     migrateData,
     saveDataDirectorySetting,
+    updateDataDirectoryLocally,
+    restartSidecar,
+    relaunchApp,
     type DirectoryValidation,
     type MigrationResult,
     type MigrationMode
   } from '../../stores/settings';
+  
+  // Reactive check for Tauri environment
+  $: inTauri = isTauri();
   
   // Modal states
   let showMigrationDialog = false;
   let showProgressDialog = false;
   let showSuccessDialog = false;
   let showErrorDialog = false;
+  let showRestartDialog = false;
   
   // Migration state
   let pendingNewPath: string = '';
@@ -46,13 +54,25 @@
   
   // Handle Browse button click
   async function handleBrowse() {
-    if ($isDevelopment) {
-      addToast('Cannot change data directory in development mode', 'error');
+    const tauriEnv = isTauri();
+    console.log('[Settings Page] handleBrowse called');
+    console.log('[Settings Page] isTauri:', tauriEnv);
+    console.log('[Settings Page] isDevelopment (from API):', $isDevelopment);
+    
+    // Only allow changing data directory in Tauri (not browser)
+    if (!tauriEnv) {
+      addToast('Data directory can only be changed in the desktop app', 'error');
       return;
     }
     
+    console.log('[Settings Page] Calling openFolderPicker...');
     const selected = await openFolderPicker();
-    if (!selected) return;
+    console.log('[Settings Page] openFolderPicker returned:', selected);
+    
+    if (!selected) {
+      console.log('[Settings Page] No folder selected (cancelled or error)');
+      return;
+    }
     
     // Validate the selected directory
     try {
@@ -89,7 +109,7 @@
     try {
       // Simulate progress updates
       const progressInterval = setInterval(() => {
-        if (migrationProgress < 90) {
+        if (migrationProgress < 50) {
           migrationProgress += 10;
           migrationStatus = `Copying files... ${migrationProgress}%`;
         }
@@ -102,14 +122,20 @@
       );
       
       clearInterval(progressInterval);
-      migrationProgress = 100;
       migrationResult = result;
       
       if (result.success) {
+        migrationProgress = 80;
+        migrationStatus = 'Saving settings...';
+        
         // Save the new path to Tauri Store
         await saveDataDirectorySetting(pendingNewPath);
+        
+        migrationProgress = 100;
+        migrationStatus = 'Done!';
+        
         showProgressDialog = false;
-        showSuccessDialog = true;
+        showRestartDialog = true;
       } else {
         showProgressDialog = false;
         errorMessage = result.error || 'Migration failed';
@@ -122,22 +148,33 @@
     }
   }
   
+  // Handle restart button click
+  async function handleRestart() {
+    try {
+      await relaunchApp();
+    } catch (err) {
+      console.error('Failed to relaunch:', err);
+      addToast('Please restart the app manually', 'info');
+    }
+  }
+  
   // Close all modals
   function closeModals() {
     showMigrationDialog = false;
     showProgressDialog = false;
     showSuccessDialog = false;
     showErrorDialog = false;
+    showRestartDialog = false;
     pendingNewPath = '';
     selectedMode = 'copy';
     validation = null;
     migrationResult = null;
   }
   
-  // Handle success dialog done - requires app restart
+  // Handle success dialog done
   function handleDone() {
     closeModals();
-    addToast('Please restart the app to use the new data directory', 'success');
+    addToast('Data directory updated successfully', 'success');
   }
   
   // Export backup
@@ -251,15 +288,15 @@
             <button 
               class="browse-button" 
               on:click={handleBrowse}
-              disabled={$isDevelopment}
-              title={$isDevelopment ? 'Cannot change in development mode' : 'Choose data directory'}
+              disabled={!inTauri}
+              title={!inTauri ? 'Only available in desktop app' : 'Choose data directory'}
             >
               Browse
             </button>
           </div>
-          {#if $isDevelopment}
+          {#if !inTauri}
             <p class="setting-hint warning">
-              Development mode: Data directory cannot be changed. Using ./data
+              Browser mode: Data directory can only be changed in the desktop app.
             </p>
           {:else}
             <p class="setting-hint">
@@ -510,6 +547,40 @@
       </div>
       <div class="modal-footer">
         <button class="btn-primary" on:click={closeModals}>OK</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Restart Required Modal -->
+{#if showRestartDialog}
+  <div class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-header success">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M22 11.08V12C21.9988 14.1564 21.3005 16.2547 20.0093 17.9818C18.7182 19.709 16.9033 20.9725 14.8354 21.5839C12.7674 22.1953 10.5573 22.1219 8.53447 21.3746C6.51168 20.6273 4.78465 19.2461 3.61096 17.4371C2.43727 15.628 1.87979 13.4881 2.02168 11.3363C2.16356 9.18457 2.99721 7.13633 4.39828 5.49707C5.79935 3.85782 7.69279 2.71538 9.79619 2.24015C11.8996 1.76491 14.1003 1.98234 16.07 2.86" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M22 4L12 14.01L9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h3>Restart Required</h3>
+      </div>
+      <div class="modal-body">
+        <p>Your data has been migrated to:</p>
+        <div class="path-highlight">{pendingNewPath}</div>
+        
+        {#if migrationResult}
+          <div class="migration-summary">
+            <p><strong>Copied:</strong></p>
+            <ul>
+              <li>{migrationResult.entityFilesCopied} entity files</li>
+              <li>{migrationResult.monthFilesCopied} month files</li>
+            </ul>
+          </div>
+        {/if}
+        
+        <p>The app needs to restart to use the new data location.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" on:click={handleRestart}>Restart Now</button>
       </div>
     </div>
   </div>

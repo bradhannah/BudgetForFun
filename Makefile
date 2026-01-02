@@ -154,8 +154,14 @@ check-prereqs: ## Quick check that all prerequisites are installed
 # Build
 build: ## Build Tauri application for current platform
 	@$(MAKE) check-prereqs
+	@$(MAKE) build-sidecar
 	@echo "Building Tauri application..."
-	@bun run build
+	@bun run tauri build
+
+build-sidecar: ## Build the standalone Bun sidecar executable
+	@echo "Building standalone sidecar executable..."
+	@cd api && bun build --compile --outfile ../src-tauri/binaries/bun-sidecar-aarch64-apple-darwin ./server.ts
+	@echo "✓ Sidecar built: src-tauri/binaries/bun-sidecar-aarch64-apple-darwin"
 
 # Clean
 clean: ## Remove build artifacts and temporary files

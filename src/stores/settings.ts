@@ -7,9 +7,15 @@
 
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '$lib/api/client';
+import { isTauri as checkIsTauri } from '@tauri-apps/api/core';
 
-// Check if we're running in Tauri
-const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+/**
+ * Check if running in Tauri environment
+ * Uses the official Tauri API detection
+ */
+export function isTauri(): boolean {
+  return checkIsTauri();
+}
 
 export interface AppSettings {
   dataDirectory: string;
@@ -128,24 +134,31 @@ export async function migrateData(
  * Returns the selected path or null if cancelled
  */
 export async function openFolderPicker(): Promise<string | null> {
-  if (!isTauri) {
+  const inTauri = isTauri();
+  console.log('[Settings] openFolderPicker called, isTauri:', inTauri);
+  
+  if (!inTauri) {
     // In browser dev mode, show a prompt
+    console.log('[Settings] Not in Tauri, using prompt fallback');
     const path = prompt('Enter folder path (browser dev mode):', '~/Documents/BudgetForFun');
     return path;
   }
   
   try {
+    console.log('[Settings] Importing @tauri-apps/plugin-dialog...');
     // Dynamic import for Tauri dialog
     const { open } = await import('@tauri-apps/plugin-dialog');
+    console.log('[Settings] Calling dialog.open()...');
     const selected = await open({
       directory: true,
       multiple: false,
       title: 'Choose Data Directory'
     });
+    console.log('[Settings] Dialog returned:', selected);
     
     return selected as string | null;
   } catch (e) {
-    console.error('Failed to open folder picker:', e);
+    console.error('[Settings] Failed to open folder picker:', e);
     return null;
   }
 }
@@ -154,7 +167,7 @@ export async function openFolderPicker(): Promise<string | null> {
  * Get the default data directory path (Tauri only)
  */
 export async function getDefaultDataDir(): Promise<string> {
-  if (!isTauri) {
+  if (!isTauri()) {
     return '~/Documents/BudgetForFun';
   }
   
@@ -172,7 +185,7 @@ export async function getDefaultDataDir(): Promise<string> {
  * This persists the setting so the app remembers on next launch
  */
 export async function saveDataDirectorySetting(path: string): Promise<void> {
-  if (!isTauri) {
+  if (!isTauri()) {
     // In browser dev mode, save to localStorage
     localStorage.setItem('budgetforfun_data_dir', path);
     return;
@@ -193,7 +206,7 @@ export async function saveDataDirectorySetting(path: string): Promise<void> {
  * Get saved data directory from Tauri Store (Tauri only)
  */
 export async function getSavedDataDirectory(): Promise<string | null> {
-  if (!isTauri) {
+  if (!isTauri()) {
     return localStorage.getItem('budgetforfun_data_dir');
   }
   
@@ -213,6 +226,72 @@ export async function getSavedDataDirectory(): Promise<string | null> {
  */
 export function clearError(): void {
   store.update(s => ({ ...s, error: null }));
+}
+
+/**
+ * Update the data directory in the local store state
+ * This updates the UI immediately without waiting for the API
+ */
+export function updateDataDirectoryLocally(newPath: string): void {
+  console.log('[Settings Store] updateDataDirectoryLocally called with:', newPath);
+  store.update(s => {
+    const newState = {
+      ...s,
+      dataDirectory: {
+        path: newPath,
+        entitiesDir: `${newPath}/entities`,
+        monthsDir: `${newPath}/months`,
+        isDevelopment: false,
+        isWritable: true
+      },
+      isDevelopment: false
+    };
+    console.log('[Settings Store] New dataDirectory state:', newState.dataDirectory);
+    return newState;
+  });
+}
+
+/**
+ * Restart the Bun sidecar with a new data directory (Tauri only)
+ * This stops the current sidecar and starts a new one with the new DATA_DIR
+ */
+export async function restartSidecar(newDataDir: string): Promise<void> {
+  if (!isTauri()) {
+    console.log('[Settings] Not in Tauri, cannot restart sidecar');
+    return;
+  }
+  
+  try {
+    console.log('[Settings] Restarting sidecar with new data directory:', newDataDir);
+    const { invoke } = await import('@tauri-apps/api/core');
+    const result = await invoke('restart_bun_sidecar', { dataDir: newDataDir });
+    console.log('[Settings] Sidecar restart result:', result);
+  } catch (e) {
+    console.error('[Settings] Failed to restart sidecar:', e);
+    throw e;
+  }
+}
+
+/**
+ * Relaunch the entire app (Tauri only)
+ * Used after data directory migration to ensure the sidecar starts with new settings
+ */
+export async function relaunchApp(): Promise<void> {
+  if (!isTauri()) {
+    console.log('[Settings] Not in Tauri, cannot relaunch app');
+    // In browser, just reload the page
+    window.location.reload();
+    return;
+  }
+  
+  try {
+    console.log('[Settings] Relaunching app...');
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('relaunch_app');
+  } catch (e) {
+    console.error('[Settings] Failed to relaunch app:', e);
+    throw e;
+  }
 }
 
 export const settingsStore = store;

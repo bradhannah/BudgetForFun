@@ -149,12 +149,9 @@ export class SettingsService {
       destDir
     };
     
-    // Check if we're in development mode
-    const config = StorageServiceImpl.getConfig();
-    if (config.isDevelopment) {
-      result.error = 'Cannot migrate data in development mode';
-      return result;
-    }
+    // Note: We no longer block migration based on "development mode".
+    // The frontend controls access (only available in Tauri desktop app).
+    // This allows migration to work regardless of whether DATA_DIR was set on startup.
     
     // Validate destination directory
     const validation = await this.validateDirectory(destDir);

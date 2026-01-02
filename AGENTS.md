@@ -91,11 +91,43 @@ tests/
    - Models (api/src/models/):
      - bill.ts, income.ts, payment-source.ts, category.ts, expense.ts, monthly-data.ts, undo.ts
    
-   - Entity Files (data/entities/):
-     - bills.json (empty array)
-     - incomes.json (empty array)
-     - categories.json (8 pre-defined categories)
-     - payment-sources.json (empty array)
-     - undo.json (empty array)
+    - Entity Files (data/entities/):
+      - bills.json (empty array)
+      - incomes.json (empty array)
+      - categories.json (8 pre-defined categories)
+      - payment-sources.json (empty array)
+      - undo.json (empty array)
+
+ - Phase 5: Configurable Data Storage - COMPLETE (2026-01-01)
+   - Feature branch: 003-configurable-data-storage
+   - Backend Storage Refactoring:
+     - StorageServiceImpl.initialize(basePath) - Configurable base path via DATA_DIR env var
+     - Development mode: uses ./data (relative path)
+     - Production mode: uses DATA_DIR environment variable (absolute path)
+   - Settings API (api/src/routes/handlers/settings.ts):
+     - GET /api/settings - Returns current settings (dataDirectory, isDevelopment, version)
+     - GET /api/settings/data-directory - Returns data directory config
+     - POST /api/settings/validate-directory - Validates a directory for use
+     - POST /api/settings/migrate-data - Migrates data between directories (copy/fresh/use_existing)
+   - Settings Service (api/src/services/settings-service.ts):
+     - getSettings(), getDataDirectory(), validateDirectory(), migrateData()
+   - Settings Models (api/src/models/settings.ts):
+     - AppSettings, StorageConfig, DirectoryValidation, MigrationResult, MigrationMode
+   - Tauri Plugin Integration (src-tauri/):
+     - Cargo.toml: Added tauri-plugin-store, tauri-plugin-dialog, tauri-plugin-fs, dirs
+     - lib.rs: Added get_default_data_dir(), get_config_dir(), modified start_bun_sidecar(data_dir)
+     - capabilities/default.json: Added store, dialog, fs permissions with scope
+   - Settings Store (src/stores/settings.ts):
+     - loadSettings(), validateDirectory(), migrateData(), openFolderPicker()
+     - saveDataDirectorySetting(), getSavedDataDirectory()
+     - Tauri Store wrapper with browser localStorage fallback
+   - Settings Page (src/routes/settings/+page.svelte):
+     - Data Storage section with Browse button
+     - Backup & Restore section (Export/Import)
+     - Appearance section (placeholder for future themes)
+     - About section (version, data format, mode)
+     - Migration dialog modal (copy/fresh/use_existing options)
+     - Progress, Success, Error modals
+   - Navigation updated: Added Settings link to sidebar
 
 <!-- MANUAL ADDITIONS END -->
