@@ -19,7 +19,7 @@
           "payments": [],
           "is_adhoc": false,
           "created_at": "2026-01-01T23:58:38.332Z",
-          "updated_at": "2026-01-01T23:58:38.332Z"
+          "updated_at": "2026-01-02T21:54:38.858Z"
         }
       ],
       "is_default": true,
@@ -27,7 +27,8 @@
       "is_closed": false,
       "is_adhoc": false,
       "created_at": "2026-01-01T23:58:38.332Z",
-      "updated_at": "2026-01-01T23:58:38.332Z"
+      "updated_at": "2026-01-02T21:54:38.858Z",
+      "actual_amount": 0
     },
     {
       "id": "95a0e88e-713a-4e92-8e0a-9c1509d2be8a",
@@ -218,12 +219,12 @@
           "updated_at": "2026-01-01T23:58:38.332Z"
         }
       ],
-      "is_default": true,
+      "is_default": false,
       "is_paid": false,
       "is_closed": false,
       "is_adhoc": false,
       "created_at": "2026-01-01T23:58:38.332Z",
-      "updated_at": "2026-01-01T23:58:38.332Z"
+      "updated_at": "2026-01-02T21:55:44.851Z"
     }
   ],
   "income_instances": [
@@ -245,7 +246,7 @@
           "payments": [],
           "is_adhoc": false,
           "created_at": "2026-01-01T23:58:38.332Z",
-          "updated_at": "2026-01-01T23:58:38.332Z"
+          "updated_at": "2026-01-02T21:54:52.160Z"
         }
       ],
       "is_default": true,
@@ -253,7 +254,8 @@
       "is_closed": false,
       "is_adhoc": false,
       "created_at": "2026-01-01T23:58:38.332Z",
-      "updated_at": "2026-01-01T23:58:38.332Z"
+      "updated_at": "2026-01-02T21:54:52.160Z",
+      "actual_amount": 0
     },
     {
       "id": "f4415dfd-e849-4cab-99c5-a1b0000163a1",
@@ -345,5 +347,5 @@
   "bank_balances": {},
   "is_read_only": false,
   "created_at": "2026-01-01T23:58:38.332Z",
-  "updated_at": "2026-01-01T23:58:38.332Z"
+  "updated_at": "2026-01-02T21:54:52.160Z"
 }

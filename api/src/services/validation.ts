@@ -62,8 +62,8 @@ export class ValidationServiceImpl implements ValidationService {
       errors.push('Name cannot exceed 100 characters');
     }
     
-    if (!bill.amount || bill.amount <= 0) {
-      errors.push('Amount must be a positive number in cents');
+    if (bill.amount === undefined || bill.amount === null || bill.amount < 0) {
+      errors.push('Amount must be zero or a positive number in cents');
     }
     
     if (!bill.billing_period) {

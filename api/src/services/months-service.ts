@@ -109,6 +109,10 @@ export interface MonthsService {
   addBillOccurrencePayment(month: string, instanceId: string, occurrenceId: string, payment: { amount: number; date: string; payment_source_id?: string }): Promise<BillInstance | null>;
   addIncomeOccurrencePayment(month: string, instanceId: string, occurrenceId: string, payment: { amount: number; date: string; payment_source_id?: string }): Promise<IncomeInstance | null>;
   
+  // Remove payment from occurrence
+  removeBillOccurrencePayment(month: string, instanceId: string, occurrenceId: string, paymentId: string): Promise<BillInstance | null>;
+  removeIncomeOccurrencePayment(month: string, instanceId: string, occurrenceId: string, paymentId: string): Promise<IncomeInstance | null>;
+  
   // Add ad-hoc occurrence
   addBillAdhocOccurrence(month: string, instanceId: string, occurrence: { expected_date: string; expected_amount: number }): Promise<BillInstance | null>;
   addIncomeAdhocOccurrence(month: string, instanceId: string, occurrence: { expected_date: string; expected_amount: number }): Promise<IncomeInstance | null>;
@@ -1487,6 +1491,88 @@ export class MonthsServiceImpl implements MonthsService {
       return instance;
     } catch (error) {
       console.error('[MonthsService] Failed to add income occurrence payment:', error);
+      throw error;
+    }
+  }
+  
+  public async removeBillOccurrencePayment(
+    month: string, 
+    instanceId: string, 
+    occurrenceId: string, 
+    paymentId: string
+  ): Promise<BillInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) throw new Error(`Monthly data for ${month} not found`);
+      
+      const instanceIndex = data.bill_instances.findIndex(bi => bi.id === instanceId);
+      if (instanceIndex === -1) return null;
+      
+      const instance = data.bill_instances[instanceIndex];
+      const occIndex = instance.occurrences.findIndex(o => o.id === occurrenceId);
+      if (occIndex === -1) return null;
+      
+      const paymentIndex = instance.occurrences[occIndex].payments.findIndex(p => p.id === paymentId);
+      if (paymentIndex === -1) return null;
+      
+      const now = new Date().toISOString();
+      
+      // Remove the payment
+      instance.occurrences[occIndex].payments.splice(paymentIndex, 1);
+      instance.occurrences[occIndex].updated_at = now;
+      
+      // Update instance actual_amount (sum of all occurrence payments)
+      instance.actual_amount = sumOccurrencePayments(instance.occurrences);
+      instance.updated_at = now;
+      
+      data.bill_instances[instanceIndex] = instance;
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return instance;
+    } catch (error) {
+      console.error('[MonthsService] Failed to remove bill occurrence payment:', error);
+      throw error;
+    }
+  }
+  
+  public async removeIncomeOccurrencePayment(
+    month: string, 
+    instanceId: string, 
+    occurrenceId: string, 
+    paymentId: string
+  ): Promise<IncomeInstance | null> {
+    try {
+      const data = await this.getMonthlyData(month);
+      if (!data) throw new Error(`Monthly data for ${month} not found`);
+      
+      const instanceIndex = data.income_instances.findIndex(ii => ii.id === instanceId);
+      if (instanceIndex === -1) return null;
+      
+      const instance = data.income_instances[instanceIndex];
+      const occIndex = instance.occurrences.findIndex(o => o.id === occurrenceId);
+      if (occIndex === -1) return null;
+      
+      const paymentIndex = instance.occurrences[occIndex].payments.findIndex(p => p.id === paymentId);
+      if (paymentIndex === -1) return null;
+      
+      const now = new Date().toISOString();
+      
+      // Remove the payment
+      instance.occurrences[occIndex].payments.splice(paymentIndex, 1);
+      instance.occurrences[occIndex].updated_at = now;
+      
+      // Update instance actual_amount (sum of all occurrence payments)
+      instance.actual_amount = sumOccurrencePayments(instance.occurrences);
+      instance.updated_at = now;
+      
+      data.income_instances[instanceIndex] = instance;
+      data.updated_at = now;
+      
+      await this.saveMonthlyData(month, data);
+      return instance;
+    } catch (error) {
+      console.error('[MonthsService] Failed to remove income occurrence payment:', error);
       throw error;
     }
   }

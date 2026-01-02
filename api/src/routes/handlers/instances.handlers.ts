@@ -1733,3 +1733,129 @@ export function createIncomeOccurrenceHandlerDelete() {
     }
   };
 }
+
+// DELETE /api/months/:month/bills/:instanceId/occurrences/:occurrenceId/payments/:paymentId - Remove payment from occurrence
+export function createDeleteBillOccurrencePaymentHandler() {
+  return async (request: Request) => {
+    try {
+      const url = new URL(request.url);
+      const match = url.pathname.match(/\/api\/months\/(\d{4}-\d{2})\/bills\/([^/]+)\/occurrences\/([^/]+)\/payments\/([^/]+)/);
+      const month = match ? match[1] : null;
+      const instanceId = match ? match[2] : null;
+      const occurrenceId = match ? match[3] : null;
+      const paymentId = match ? match[4] : null;
+      
+      if (!month || !instanceId || !occurrenceId || !paymentId) {
+        return new Response(JSON.stringify({
+          error: 'Invalid URL. Expected /api/months/YYYY-MM/bills/:instanceId/occurrences/:occurrenceId/payments/:paymentId'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
+      const instance = await monthsService.removeBillOccurrencePayment(month, instanceId, occurrenceId, paymentId);
+      
+      if (!instance) {
+        return new Response(JSON.stringify({
+          error: `Payment not found`
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 404
+        });
+      }
+      
+      const bill = instance.bill_id ? await billsService.getById(instance.bill_id) : null;
+      const enrichedInstance = {
+        ...instance,
+        name: instance.name || bill?.name || 'Unknown Bill'
+      };
+      
+      const summary = await leftoverService.calculateLeftover(month);
+      
+      return new Response(JSON.stringify({
+        instance: enrichedInstance,
+        summary
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (error) {
+      console.error('[InstancesHandler] Bill Occurrence Payment Delete failed:', error);
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to remove payment from bill occurrence'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  };
+}
+
+// DELETE /api/months/:month/incomes/:instanceId/occurrences/:occurrenceId/payments/:paymentId - Remove payment from occurrence
+export function createDeleteIncomeOccurrencePaymentHandler() {
+  return async (request: Request) => {
+    try {
+      const url = new URL(request.url);
+      const match = url.pathname.match(/\/api\/months\/(\d{4}-\d{2})\/incomes\/([^/]+)\/occurrences\/([^/]+)\/payments\/([^/]+)/);
+      const month = match ? match[1] : null;
+      const instanceId = match ? match[2] : null;
+      const occurrenceId = match ? match[3] : null;
+      const paymentId = match ? match[4] : null;
+      
+      if (!month || !instanceId || !occurrenceId || !paymentId) {
+        return new Response(JSON.stringify({
+          error: 'Invalid URL. Expected /api/months/YYYY-MM/incomes/:instanceId/occurrences/:occurrenceId/payments/:paymentId'
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+      
+      const readOnlyResponse = await checkReadOnly(month);
+      if (readOnlyResponse) return readOnlyResponse;
+      
+      const instance = await monthsService.removeIncomeOccurrencePayment(month, instanceId, occurrenceId, paymentId);
+      
+      if (!instance) {
+        return new Response(JSON.stringify({
+          error: `Payment not found`
+        }), {
+          headers: { 'Content-Type': 'application/json' },
+          status: 404
+        });
+      }
+      
+      const income = instance.income_id ? await incomesService.getById(instance.income_id) : null;
+      const enrichedInstance = {
+        ...instance,
+        name: instance.name || income?.name || 'Unknown Income'
+      };
+      
+      const summary = await leftoverService.calculateLeftover(month);
+      
+      return new Response(JSON.stringify({
+        instance: enrichedInstance,
+        summary
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200
+      });
+    } catch (error) {
+      console.error('[InstancesHandler] Income Occurrence Payment Delete failed:', error);
+      
+      return new Response(JSON.stringify({
+        error: formatErrorForUser(error),
+        message: 'Failed to remove payment from income occurrence'
+      }), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 500
+      });
+    }
+  };
+}

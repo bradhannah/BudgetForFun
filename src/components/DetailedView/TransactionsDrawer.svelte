@@ -1,6 +1,5 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { payments } from '../../stores/payments';
   import { apiClient } from '../../lib/api/client';
   import { success, error as showError } from '../../stores/toast';
   import type { Payment } from '../../stores/detailed-month';
@@ -164,12 +163,20 @@
   
   async function deleteTransaction(paymentId: string) {
     try {
-      if (type === 'bill') {
-        await payments.removePayment(month, instanceId, paymentId);
+      // Build the endpoint - use occurrence endpoint if occurrenceId provided
+      let endpoint: string;
+      
+      if (occurrenceId) {
+        // Occurrence-level delete endpoint
+        endpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/payments/${paymentId}`;
       } else {
-        // @ts-ignore - removeIncomePayment exists but TypeScript inference doesn't pick it up
-        await payments.removeIncomePayment(month, instanceId, paymentId);
+        // Instance-level endpoints (legacy/monthly)
+        endpoint = type === 'bill' 
+          ? `/api/months/${month}/bills/${instanceId}/payments/${paymentId}`
+          : `/api/months/${month}/incomes/${instanceId}/payments/${paymentId}`;
       }
+      
+      await apiClient.deletePath(endpoint);
       success(`${typeLabel} deleted`);
       dispatch('updated');
     } catch (err) {

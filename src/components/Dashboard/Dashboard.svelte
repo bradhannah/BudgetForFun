@@ -4,7 +4,7 @@
   import LeftoverCard from './LeftoverCard.svelte';
   import AccountBalancesCard from '../shared/AccountBalancesCard.svelte';
   import CollapsibleSummarySection from './CollapsibleSummarySection.svelte';
-  import { currentMonth, wideMode } from '../../stores/ui';
+  import { currentMonth, widthMode } from '../../stores/ui';
   import { 
     monthsStore, 
     monthlyLoading, 
@@ -79,8 +79,8 @@
   }));
   
   // Toggle width mode
-  function toggleWideMode() {
-    wideMode.toggle();
+  function toggleWidthMode() {
+    widthMode.cycle();
   }
   
   // Create month data
@@ -108,7 +108,7 @@
   }
 </script>
 
-<div class="dashboard" class:wide={$wideMode}>
+<div class="dashboard" class:small={$widthMode === 'small'} class:medium={$widthMode === 'medium'} class:wide={$widthMode === 'wide'}>
   <header class="dashboard-header">
     <div class="header-left">
       <h1>Dashboard</h1>
@@ -116,10 +116,10 @@
     <div class="header-right">
       <button 
         class="width-toggle" 
-        on:click={toggleWideMode}
-        title={$wideMode ? 'Normal width' : 'Wide mode'}
+        on:click={toggleWidthMode}
+        title={$widthMode === 'small' ? 'Switch to medium width' : $widthMode === 'medium' ? 'Switch to wide mode' : 'Switch to small width'}
       >
-        {#if $wideMode}
+        {#if $widthMode === 'wide'}
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M9 4H5C4.44772 4 4 4.44772 4 5V19C4 19.5523 4.44772 20 5 20H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <path d="M15 4H19C19.5523 4 20 4.44772 20 5V19C20 19.5523 19.5523 20 19 20H15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -224,6 +224,14 @@
     margin: 0 auto;
     padding: 24px;
     transition: max-width 0.3s ease;
+  }
+  
+  .dashboard.small {
+    max-width: 900px;
+  }
+  
+  .dashboard.medium {
+    max-width: 1200px;
   }
   
   .dashboard.wide {

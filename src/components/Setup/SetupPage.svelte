@@ -3,7 +3,7 @@
   
   // Stores
   import { paymentSourcesStore, loadPaymentSources, deletePaymentSource, isDebtAccount, formatBalanceForDisplay, getTypeDisplayName } from '../../stores/payment-sources';
-  import { billsStore, loadBills, deleteBill, activeBillsWithContribution, totalFixedCosts, calculateMonthlyContribution as calculateBillContribution } from '../../stores/bills';
+  import { billsStore, loadBills, deleteBill, activeBillsWithContribution, totalFixedCosts, billsByCategory, calculateMonthlyContribution as calculateBillContribution } from '../../stores/bills';
   import { incomesStore, loadIncomes, deleteIncome, activeIncomesWithContribution, totalMonthlyIncome, calculateMonthlyContribution as calculateIncomeContribution } from '../../stores/incomes';
   import { categoriesStore, loadCategories, deleteCategory, billCategories, incomeCategories } from '../../stores/categories';
   import { variableExpenseTemplatesStore, type VariableExpenseTemplate } from '../../stores/variable-expense-templates';
@@ -21,6 +21,7 @@
   import CategoryView from './CategoryView.svelte';
   import VariableExpenseTemplateForm from './VariableExpenseTemplateForm.svelte';
   import VariableExpenseTemplateView from './VariableExpenseTemplateView.svelte';
+  import BillsListByCategory from './BillsListByCategory.svelte';
   import LoadDefaultsButton from '../shared/LoadDefaultsButton.svelte';
   import ConfirmDialog from '../shared/ConfirmDialog.svelte';
   import CategoryOrderer from './CategoryOrderer.svelte';
@@ -339,32 +340,14 @@
               <p class="hint">Add your recurring bills like rent, utilities, subscriptions.</p>
             </div>
           {:else}
-            {#each $activeBillsWithContribution as bill}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="entity-card clickable" on:click={() => openViewDrawer(bill)}>
-                <div class="card-header">
-                  <span class="card-name">{bill.name}</span>
-                  <span class="card-badge">{bill.billing_period.replace('_', '-')}</span>
-                </div>
-                {#if bill.start_date && bill.billing_period !== 'monthly'}
-                  <div class="card-meta">Starts: {bill.start_date}</div>
-                {/if}
-                <div class="card-meta">Paid from: {getPaymentSourceName(bill.payment_source_id)}</div>
-                <div class="card-amount" style="color: #ff6b6b;">
-                  {formatAmount(bill.monthlyContribution)}/mo
-                </div>
-                <div class="card-actions" on:click|stopPropagation>
-                    <button class="btn-small btn-secondary" on:click={() => openEditDrawer(bill)}>Edit</button>
-                    <button class="btn-small btn-danger" on:click={() => confirmDelete({ id: bill.id, name: bill.name })}>Delete</button>
-                </div>
-              </div>
-            {/each}
-            <!-- Total Fixed Costs -->
-            <div class="total-row">
-              <span class="total-label">Total Fixed Costs</span>
-              <span class="total-value" style="color: #ff6b6b;">{formatAmount($totalFixedCosts)}/mo</span>
-            </div>
+            <BillsListByCategory
+              billsByCategory={$billsByCategory}
+              totalFixedCosts={$totalFixedCosts}
+              onView={openViewDrawer}
+              onEdit={openEditDrawer}
+              onDelete={(bill) => confirmDelete({ id: bill.id, name: bill.name })}
+              {getPaymentSourceName}
+            />
           {/if}
 
         {:else if activeTab === 'incomes'}

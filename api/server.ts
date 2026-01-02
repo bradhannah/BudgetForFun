@@ -294,7 +294,7 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     const lastRouteSegment = routeSegments[routeSegments.length - 1];
     const lastRequestSegment = requestSegments[requestSegments.length - 1];
     
-    // Check if last segments match (action like close, reopen, payments)
+    // Pattern A: last segments match (action like close, reopen, payments)
     if (lastRouteSegment === lastRequestSegment) {
       // Verify occurrence pattern
       if (routeSegments.length === 5 && routeSegments[3] === 'occurrences') {
@@ -304,6 +304,21 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
             routeSegments[3] === requestSegments[5]) {    // occurrences
           return true;
         }
+      }
+    }
+    
+    // Pattern B: occurrence payment DELETE (paymentId at end)
+    //   Route: [api, months, bills, occurrences, payments] (5 segments)
+    //   Request: [api, months, 2025-12, bills, UUID, occurrences, occId, payments, paymentId] (9 segments)
+    //   Match: route[4] == req[7] (payments), with paymentId at req[8]
+    const secondToLastRequestSegment = requestSegments[requestSegments.length - 2];
+    if (lastRouteSegment === secondToLastRequestSegment && routeSegments.length === 5 && routeSegments[3] === 'occurrences') {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // bills|incomes
+          routeSegments[3] === requestSegments[5] &&    // occurrences
+          routeSegments[4] === requestSegments[7]) {    // payments
+        return true;
       }
     }
   }
