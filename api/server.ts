@@ -214,6 +214,10 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     //   Route: [api, months, bills, reset]
     //   Request: [api, months, 2025-01, bills, UUID, reset]
     //   Match when route's last segment matches request's last segment
+    // Pattern C: month + instanceId + occurrenceId (occurrence endpoints without action)
+    //   e.g., /api/months/bills/occurrences -> /api/months/2026-01/bills/UUID/occurrences/OCC-UUID
+    //   Route: [api, months, bills, occurrences]
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID]
     
     const lastRouteSegment = routeSegments[routeSegments.length - 1];
     const lastRequestSegment = requestSegments[requestSegments.length - 1];
@@ -250,6 +254,57 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
         }
       }
       if (patternBMatch) return true;
+    }
+    
+    // Pattern C: occurrence pattern - month + instanceId + occurrenceId (for routes without action)
+    //   Route: [api, months, bills, occurrences] (4 segments)
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID] (7 segments)
+    //   Match: route[0,1] == req[0,1], route[2] == req[3], route[3] == req[5]
+    if (routeSegments.length === 4 && (routeSegments[3] === 'occurrences')) {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // bills|incomes
+          routeSegments[3] === requestSegments[5]) {    // occurrences
+        return true;
+      }
+    }
+    
+    // Pattern D: occurrence pattern with action - month + instanceId + occurrenceId + action
+    //   Route: [api, months, bills, occurrences, close] (5 segments)
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID, close] (8 segments)
+    //   Match: route[0,1] == req[0,1], route[2] == req[3], route[3] == req[5], route[4] == req[7]
+    if (routeSegments.length === 5 && routeSegments[3] === 'occurrences') {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // bills|incomes
+          routeSegments[3] === requestSegments[5] &&    // occurrences
+          routeSegments[4] === requestSegments[7]) {    // close|reopen|payments
+        return true;
+      }
+    }
+  }
+  
+  if (extraSegments === 4) {
+    // Four extra segments - occurrence routes with action:
+    //   e.g., /api/months/bills/occurrences/close -> /api/months/2026-01/bills/UUID/occurrences/OCC-UUID/close
+    //   Route: [api, months, bills, occurrences, close] (5 segments)
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID, close] (8 segments)
+    //   Match: route[0,1] == req[0,1], route[2] == req[3], route[3] == req[5], route[4] == req[7]
+    
+    const lastRouteSegment = routeSegments[routeSegments.length - 1];
+    const lastRequestSegment = requestSegments[requestSegments.length - 1];
+    
+    // Check if last segments match (action like close, reopen, payments)
+    if (lastRouteSegment === lastRequestSegment) {
+      // Verify occurrence pattern
+      if (routeSegments.length === 5 && routeSegments[3] === 'occurrences') {
+        if (routeSegments[0] === requestSegments[0] &&    // api
+            routeSegments[1] === requestSegments[1] &&    // months
+            routeSegments[2] === requestSegments[3] &&    // bills|incomes
+            routeSegments[3] === requestSegments[5]) {    // occurrences
+          return true;
+        }
+      }
     }
   }
   

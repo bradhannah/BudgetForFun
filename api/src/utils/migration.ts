@@ -34,14 +34,32 @@ export function getDefaultColor(name: string): string {
  * Adds new fields with sensible defaults if missing
  */
 export function migrateBillInstance(instance: any): BillInstance {
+  const now = new Date().toISOString();
+  
+  // Create a default occurrence if occurrences is missing
+  const occurrences = instance.occurrences ?? [{
+    id: crypto.randomUUID(),
+    sequence: 1,
+    expected_date: instance.due_date || `${instance.month}-01`,
+    expected_amount: instance.expected_amount ?? instance.amount ?? 0,
+    is_closed: instance.is_closed ?? instance.is_paid ?? false,
+    closed_date: instance.closed_date,
+    payments: instance.payments ?? [],
+    is_adhoc: instance.is_adhoc ?? false,
+    created_at: instance.created_at ?? now,
+    updated_at: instance.updated_at ?? now
+  }];
+  
   return {
     id: instance.id,
     bill_id: instance.bill_id ?? null,
     month: instance.month,
+    billing_period: instance.billing_period ?? 'monthly',
     amount: instance.amount ?? 0,
     expected_amount: instance.expected_amount ?? instance.amount ?? 0,
     actual_amount: instance.actual_amount ?? (instance.is_paid ? instance.amount : undefined),
     payments: instance.payments ?? [],
+    occurrences,
     is_default: instance.is_default ?? false,
     is_paid: instance.is_paid ?? false,
     is_closed: instance.is_closed ?? instance.is_paid ?? false,
@@ -51,8 +69,8 @@ export function migrateBillInstance(instance: any): BillInstance {
     name: instance.name ?? undefined,
     category_id: instance.category_id ?? undefined,
     payment_source_id: instance.payment_source_id ?? undefined,
-    created_at: instance.created_at ?? new Date().toISOString(),
-    updated_at: instance.updated_at ?? new Date().toISOString()
+    created_at: instance.created_at ?? now,
+    updated_at: instance.updated_at ?? now
   };
 }
 
@@ -61,14 +79,32 @@ export function migrateBillInstance(instance: any): BillInstance {
  * Adds new fields with sensible defaults if missing
  */
 export function migrateIncomeInstance(instance: any): IncomeInstance {
+  const now = new Date().toISOString();
+  
+  // Create a default occurrence if occurrences is missing
+  const occurrences = instance.occurrences ?? [{
+    id: crypto.randomUUID(),
+    sequence: 1,
+    expected_date: instance.due_date || `${instance.month}-01`,
+    expected_amount: instance.expected_amount ?? instance.amount ?? 0,
+    is_closed: instance.is_closed ?? instance.is_paid ?? false,
+    closed_date: instance.closed_date,
+    payments: instance.payments ?? [],
+    is_adhoc: instance.is_adhoc ?? false,
+    created_at: instance.created_at ?? now,
+    updated_at: instance.updated_at ?? now
+  }];
+  
   return {
     id: instance.id,
     income_id: instance.income_id ?? null,
     month: instance.month,
+    billing_period: instance.billing_period ?? 'monthly',
     amount: instance.amount ?? 0,
     expected_amount: instance.expected_amount ?? instance.amount ?? 0,
     actual_amount: instance.actual_amount ?? (instance.is_paid ? instance.amount : undefined),
     payments: instance.payments ?? [],
+    occurrences,
     is_default: instance.is_default ?? false,
     is_paid: instance.is_paid ?? false,
     is_closed: instance.is_closed ?? instance.is_paid ?? false,
@@ -78,8 +114,8 @@ export function migrateIncomeInstance(instance: any): IncomeInstance {
     name: instance.name ?? undefined,
     category_id: instance.category_id ?? undefined,
     payment_source_id: instance.payment_source_id ?? undefined,
-    created_at: instance.created_at ?? new Date().toISOString(),
-    updated_at: instance.updated_at ?? new Date().toISOString()
+    created_at: instance.created_at ?? now,
+    updated_at: instance.updated_at ?? now
   };
 }
 
@@ -108,7 +144,9 @@ export function needsBillInstanceMigration(instance: any): boolean {
     instance.expected_amount === undefined ||
     instance.payments === undefined ||
     instance.is_adhoc === undefined ||
-    instance.is_closed === undefined
+    instance.is_closed === undefined ||
+    instance.billing_period === undefined ||
+    instance.occurrences === undefined
   );
 }
 
@@ -120,7 +158,9 @@ export function needsIncomeInstanceMigration(instance: any): boolean {
     instance.expected_amount === undefined ||
     instance.is_adhoc === undefined ||
     instance.payments === undefined ||
-    instance.is_closed === undefined
+    instance.is_closed === undefined ||
+    instance.billing_period === undefined ||
+    instance.occurrences === undefined
   );
 }
 

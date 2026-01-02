@@ -1,6 +1,7 @@
 // Settings API handlers
 
 import { getSettingsService } from '../../services/settings-service';
+import { StorageServiceImpl } from '../../services/storage';
 import type { MigrationRequest } from '../../models/settings';
 
 const settingsService = getSettingsService();
@@ -106,9 +107,65 @@ export async function migrateData(req: Request): Promise<Response> {
       body.mode
     );
     
+    // If migration was successful, switch the storage service to use the new directory
+    if (result.success) {
+      StorageServiceImpl.switchDataDirectory(body.destDir);
+    }
+    
     const status = result.success ? 200 : 500;
     return new Response(JSON.stringify(result), {
       status,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: message 
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * POST /api/settings/switch-directory
+ * Switches the data directory at runtime (for development mode).
+ * In production, the app should be restarted instead.
+ */
+export async function switchDirectory(req: Request): Promise<Response> {
+  try {
+    const body = await req.json() as { path?: string };
+    
+    if (!body.path) {
+      return new Response(JSON.stringify({ error: 'path is required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Validate the directory first
+    const validation = await settingsService.validateDirectory(body.path);
+    
+    if (!validation.isValid) {
+      return new Response(JSON.stringify({ 
+        success: false,
+        error: validation.error || 'Directory is not valid'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Switch the storage service to use the new directory
+    StorageServiceImpl.switchDataDirectory(body.path);
+    
+    return new Response(JSON.stringify({ 
+      success: true,
+      dataDirectory: body.path
+    }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (err) {

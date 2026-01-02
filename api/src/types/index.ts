@@ -68,7 +68,25 @@ interface Payment {
   id: string;
   amount: number;
   date: string;          // ISO date (YYYY-MM-DD)
+  payment_source_id?: string; // Which account the payment came from
   created_at: string;
+}
+
+// ============================================================================
+// Occurrence (individual payment instance within a billing period)
+// ============================================================================
+
+interface Occurrence {
+  id: string;
+  sequence: number;           // 1, 2, 3... for ordering within the month
+  expected_date: string;      // YYYY-MM-DD - calculated from due_day/start_date, overridable
+  expected_amount: number;    // Cents - can be edited independently per occurrence
+  is_closed: boolean;         // Close/Open status for this occurrence
+  closed_date?: string;       // When closed (YYYY-MM-DD)
+  payments: Payment[];        // Payments toward this specific occurrence
+  is_adhoc: boolean;          // True if manually added by user
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================================================
@@ -79,16 +97,18 @@ interface BillInstance {
   id: string;
   bill_id: string | null;     // null for ad-hoc bills
   month: string;
+  billing_period: string;     // Copied from Bill for display
   amount: number;             // DEPRECATED: use expected_amount
-  expected_amount: number;    // From default bill (read-only in Detailed View)
-  actual_amount?: number;     // User-entered actual (for non-partial)
-  payments: Payment[];        // Array of partial payments
+  expected_amount: number;    // Sum of all occurrence expected_amounts
+  actual_amount?: number;     // DEPRECATED: computed from occurrence payments
+  payments: Payment[];        // DEPRECATED: payments now on occurrences
+  occurrences: Occurrence[];  // NEW: Individual occurrences for this instance
   is_default: boolean;
   is_paid: boolean;           // DEPRECATED: use is_closed instead
-  is_closed: boolean;         // True = no more transactions expected
+  is_closed: boolean;         // True when ALL occurrences are closed
   is_adhoc: boolean;          // True for one-time ad-hoc items
-  due_date?: string;          // Calculated from Bill.due_day + month
-  closed_date?: string;       // ISO date when closed (YYYY-MM-DD)
+  due_date?: string;          // DEPRECATED: use occurrence expected_date
+  closed_date?: string;       // ISO date when fully closed (YYYY-MM-DD)
   name?: string;              // For ad-hoc items (bill_id is null)
   category_id?: string;       // For ad-hoc items (no bill reference)
   payment_source_id?: string; // For ad-hoc items (no bill reference)
@@ -100,16 +120,18 @@ interface IncomeInstance {
   id: string;
   income_id: string | null;   // null for ad-hoc income
   month: string;
+  billing_period: string;     // Copied from Income for display
   amount: number;             // DEPRECATED: use expected_amount
-  expected_amount: number;    // From default income
-  actual_amount?: number;     // User-entered actual
-  payments: Payment[];        // Array of partial receipts (transactions)
+  expected_amount: number;    // Sum of all occurrence expected_amounts
+  actual_amount?: number;     // DEPRECATED: computed from occurrence payments
+  payments: Payment[];        // DEPRECATED: payments now on occurrences
+  occurrences: Occurrence[];  // NEW: Individual occurrences for this instance
   is_default: boolean;
   is_paid: boolean;           // DEPRECATED: use is_closed instead
-  is_closed: boolean;         // True = no more transactions expected
+  is_closed: boolean;         // True when ALL occurrences are closed
   is_adhoc: boolean;          // True for one-time ad-hoc items
-  due_date?: string;          // Calculated from Income.due_day + month
-  closed_date?: string;       // ISO date when closed (YYYY-MM-DD)
+  due_date?: string;          // DEPRECATED: use occurrence expected_date
+  closed_date?: string;       // ISO date when fully closed (YYYY-MM-DD)
   name?: string;              // For ad-hoc items (income_id is null)
   category_id?: string;       // For ad-hoc items (no income reference)
   payment_source_id?: string; // For ad-hoc items (no income reference)
@@ -235,15 +257,19 @@ interface BillInstanceDetailed {
   id: string;
   bill_id: string | null;
   name: string;
+  billing_period: string;
   expected_amount: number;
   actual_amount: number | null;
-  payments: Payment[];
+  payments: Payment[];        // DEPRECATED: use occurrences
+  occurrences: Occurrence[];  // NEW: Individual occurrences
+  occurrence_count: number;   // NEW: How many occurrences in this month
+  is_extra_occurrence_month: boolean; // NEW: True if more occurrences than usual
   total_paid: number;
   remaining: number;
   is_paid: boolean;           // DEPRECATED: use is_closed instead
   is_closed: boolean;         // True = no more transactions expected
   is_adhoc: boolean;
-  due_date: string | null;
+  due_date: string | null;    // DEPRECATED: use occurrence expected_date
   closed_date: string | null; // ISO date when closed
   is_overdue: boolean;
   days_overdue: number | null;
@@ -258,15 +284,19 @@ interface IncomeInstanceDetailed {
   id: string;
   income_id: string | null;
   name: string;
+  billing_period: string;
   expected_amount: number;
   actual_amount: number | null;
-  payments: Payment[];        // Array of partial receipts (transactions)
+  payments: Payment[];        // DEPRECATED: use occurrences
+  occurrences: Occurrence[];  // NEW: Individual occurrences
+  occurrence_count: number;   // NEW: How many occurrences in this month
+  is_extra_occurrence_month: boolean; // NEW: True if more occurrences than usual (3-paycheck month!)
   total_received: number;     // Sum of all payments
   remaining: number;          // expected - total_received
   is_paid: boolean;           // DEPRECATED: use is_closed instead
   is_closed: boolean;         // True = no more transactions expected
   is_adhoc: boolean;
-  due_date: string | null;
+  due_date: string | null;    // DEPRECATED: use occurrence expected_date
   closed_date: string | null; // ISO date when closed
   is_overdue: boolean;
   payment_source: {
@@ -347,6 +377,7 @@ export type {
   Bill,
   Income,
   Payment,
+  Occurrence,
   BillInstance,
   IncomeInstance,
   VariableExpense,

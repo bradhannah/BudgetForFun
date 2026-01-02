@@ -8,21 +8,43 @@ export interface Payment {
   amount: number;
   date: string;
   notes?: string;
+  payment_source_id?: string;
+  created_at?: string;
 }
+
+// Occurrence - individual payment instance within a billing period (for bi-weekly/weekly)
+export interface Occurrence {
+  id: string;
+  sequence: number;           // 1, 2, 3... for ordering within the month
+  expected_date: string;      // YYYY-MM-DD - when this occurrence is expected
+  expected_amount: number;    // Cents - can be edited independently per occurrence
+  is_closed: boolean;         // Close/Open status for this occurrence
+  closed_date?: string;       // When closed (YYYY-MM-DD)
+  payments: Payment[];        // Payments toward this specific occurrence
+  is_adhoc: boolean;          // True if manually added by user
+  created_at: string;
+  updated_at: string;
+}
+
+export type BillingPeriod = 'monthly' | 'bi_weekly' | 'weekly' | 'semi_annually';
 
 export interface BillInstanceDetailed {
   id: string;
   bill_id: string | null;
   name: string;
+  billing_period: BillingPeriod; // NEW: billing period type
   expected_amount: number;
   actual_amount: number | null;
-  payments: Payment[];
+  payments: Payment[];          // DEPRECATED: use occurrences
+  occurrences: Occurrence[];    // NEW: Individual occurrences for this instance
+  occurrence_count: number;     // NEW: How many occurrences in this month
+  is_extra_occurrence_month: boolean; // NEW: True if more occurrences than usual
   total_paid: number;
   remaining: number;
   is_paid: boolean;
   is_closed: boolean;
   is_adhoc: boolean;
-  due_date: string | null;
+  due_date: string | null;      // DEPRECATED: use occurrence expected_date
   closed_date: string | null;
   is_overdue: boolean;
   days_overdue: number | null;
@@ -37,15 +59,19 @@ export interface IncomeInstanceDetailed {
   id: string;
   income_id: string | null;
   name: string;
+  billing_period: BillingPeriod; // NEW: billing period type
   expected_amount: number;
   actual_amount: number | null;
-  payments: Payment[];
+  payments: Payment[];          // DEPRECATED: use occurrences
+  occurrences: Occurrence[];    // NEW: Individual occurrences for this instance
+  occurrence_count: number;     // NEW: How many occurrences in this month
+  is_extra_occurrence_month: boolean; // NEW: True if more occurrences than usual (3-paycheck month!)
   total_received: number;
   remaining: number;
   is_paid: boolean;
   is_closed: boolean;
   is_adhoc: boolean;
-  due_date: string | null;
+  due_date: string | null;      // DEPRECATED: use occurrence expected_date
   closed_date: string | null;
   is_overdue: boolean;
   payment_source: {

@@ -3,6 +3,7 @@
   import type { CategorySection as CategorySectionType, BillInstanceDetailed, IncomeInstanceDetailed } from '../../stores/detailed-month';
   import BillRow from './BillRow.svelte';
   import IncomeRow from './IncomeRow.svelte';
+  import OccurrenceCard from './OccurrenceCard.svelte';
   import AdHocForm from './AdHocForm.svelte';
   
   export let section: CategorySectionType;
@@ -29,6 +30,13 @@
   // Type guards
   function isBillInstance(item: BillInstanceDetailed | IncomeInstanceDetailed): item is BillInstanceDetailed {
     return 'bill_id' in item;
+  }
+  
+  // Check if item has multiple occurrences (non-monthly billing)
+  function hasMultipleOccurrences(item: BillInstanceDetailed | IncomeInstanceDetailed): boolean {
+    const period = item.billing_period;
+    return (period === 'bi_weekly' || period === 'weekly') && 
+           item.occurrences && item.occurrences.length > 1;
   }
   
   $: showAmber = section.subtotal.actual > 0 && section.subtotal.actual !== section.subtotal.expected;
@@ -74,9 +82,20 @@
   
   <div class="category-items">
     {#each section.items as item (item.id)}
-      {#if type === 'bills' && isBillInstance(item)}
+      {#if hasMultipleOccurrences(item)}
+        <!-- Multi-occurrence items (bi-weekly, weekly) use OccurrenceCard -->
+        <OccurrenceCard 
+          {item} 
+          type={type === 'bills' ? 'bill' : 'income'} 
+          {month} 
+          {readOnly} 
+          on:refresh={handleRefresh} 
+        />
+      {:else if type === 'bills' && isBillInstance(item)}
+        <!-- Regular monthly bills use BillRow -->
         <BillRow bill={item} {month} {compactMode} {onTogglePaid} {readOnly} on:refresh={handleRefresh} />
       {:else if type === 'income' && !isBillInstance(item)}
+        <!-- Regular monthly incomes use IncomeRow -->
         <IncomeRow income={item} {month} {compactMode} {onTogglePaid} {readOnly} on:refresh={handleRefresh} />
       {/if}
     {/each}

@@ -162,9 +162,17 @@ export class DetailedViewServiceImpl implements DetailedViewService {
         id: instance.id,
         bill_id: instance.bill_id,
         name: instance.name || bill?.name || 'Unknown Bill',
+        billing_period: instance.billing_period || bill?.billing_period || 'monthly',
         expected_amount: instance.expected_amount,
         actual_amount: instance.actual_amount ?? null,
         payments: instance.payments || [],
+        occurrences: instance.occurrences || [],
+        occurrence_count: (instance.occurrences || []).length,
+        is_extra_occurrence_month: instance.billing_period === 'bi_weekly' 
+          ? (instance.occurrences || []).length > 2 
+          : instance.billing_period === 'weekly' 
+            ? (instance.occurrences || []).length > 4 
+            : false,
         total_paid: totalPaid,
         remaining,
         is_paid: instance.is_paid,
@@ -207,9 +215,17 @@ export class DetailedViewServiceImpl implements DetailedViewService {
         id: instance.id,
         income_id: instance.income_id,
         name: instance.name || income?.name || 'Unknown Income',
+        billing_period: instance.billing_period || income?.billing_period || 'monthly',
         expected_amount: instance.expected_amount,
         actual_amount: instance.actual_amount ?? null,
         payments,
+        occurrences: instance.occurrences || [],
+        occurrence_count: (instance.occurrences || []).length,
+        is_extra_occurrence_month: instance.billing_period === 'bi_weekly' 
+          ? (instance.occurrences || []).length > 2 
+          : instance.billing_period === 'weekly' 
+            ? (instance.occurrences || []).length > 4 
+            : false,
         total_received: totalReceived,
         remaining,
         is_paid: instance.is_paid,

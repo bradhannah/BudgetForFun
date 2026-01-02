@@ -57,6 +57,26 @@ export class StorageServiceImpl implements StorageService {
     StorageServiceImpl.instance = null;
   }
   
+  /**
+   * Switch to a new data directory at runtime.
+   * Used after migration to point the server at the new location.
+   */
+  public static switchDataDirectory(newBasePath: string): void {
+    console.log(`[StorageService] Switching data directory to: ${newBasePath}`);
+    
+    config = {
+      basePath: newBasePath,
+      entitiesDir: join(newBasePath, 'entities'),
+      monthsDir: join(newBasePath, 'months'),
+      isDevelopment: false  // Once switched to a custom path, treat as non-dev
+    };
+    
+    // Reset instance so next getInstance() uses new config
+    StorageServiceImpl.instance = null;
+    
+    console.log(`[StorageService] Data directory switched successfully`);
+  }
+  
   public static getInstance(): StorageService {
     if (!StorageServiceImpl.instance) {
       StorageServiceImpl.instance = new StorageServiceImpl();

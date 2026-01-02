@@ -13,6 +13,7 @@
   export let transactionList: Payment[] = [];
   export let isClosed: boolean = false;
   export let type: 'bill' | 'income' = 'bill';
+  export let occurrenceId: string | undefined = undefined; // NEW: For occurrence-level payments
   
   const dispatch = createEventDispatcher();
   
@@ -90,20 +91,30 @@
     error = '';
     
     try {
-      // Add the payment
-      const endpoint = type === 'bill' 
-        ? `/api/months/${month}/bills/${instanceId}/payments`
-        : `/api/months/${month}/incomes/${instanceId}/payments`;
+      // Build the endpoint - use occurrence endpoint if occurrenceId provided
+      let endpoint: string;
+      let closeEndpoint: string;
+      
+      if (occurrenceId) {
+        // Occurrence-level endpoints
+        endpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/payments`;
+        closeEndpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/close`;
+      } else {
+        // Instance-level endpoints (legacy/monthly)
+        endpoint = type === 'bill' 
+          ? `/api/months/${month}/bills/${instanceId}/payments`
+          : `/api/months/${month}/incomes/${instanceId}/payments`;
+        closeEndpoint = type === 'bill'
+          ? `/api/months/${month}/bills/${instanceId}/close`
+          : `/api/months/${month}/incomes/${instanceId}/close`;
+      }
       
       await apiClient.post(endpoint, { amount: amountCents, date });
       
-      // Close the instance if requested
+      // Close the instance/occurrence if requested
       if (closeAfter) {
-        const closeEndpoint = type === 'bill'
-          ? `/api/months/${month}/bills/${instanceId}/close`
-          : `/api/months/${month}/incomes/${instanceId}/close`;
         await apiClient.post(closeEndpoint, {});
-        success(`${typeLabel} added and ${type === 'bill' ? 'bill' : 'income'} closed`);
+        success(`${typeLabel} added and closed`);
       } else {
         success(`${typeLabel} added`);
       }
@@ -128,11 +139,19 @@
     error = '';
     
     try {
-      const closeEndpoint = type === 'bill'
-        ? `/api/months/${month}/bills/${instanceId}/close`
-        : `/api/months/${month}/incomes/${instanceId}/close`;
+      // Build the close endpoint - use occurrence endpoint if occurrenceId provided
+      let closeEndpoint: string;
+      
+      if (occurrenceId) {
+        closeEndpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/close`;
+      } else {
+        closeEndpoint = type === 'bill'
+          ? `/api/months/${month}/bills/${instanceId}/close`
+          : `/api/months/${month}/incomes/${instanceId}/close`;
+      }
+      
       await apiClient.post(closeEndpoint, {});
-      success(`${type === 'bill' ? 'Bill' : 'Income'} closed`);
+      success(`${occurrenceId ? 'Occurrence' : (type === 'bill' ? 'Bill' : 'Income')} closed`);
       dispatch('updated');
       handleClose();
     } catch (err) {
