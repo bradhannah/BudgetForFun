@@ -92,7 +92,7 @@
 
   .drawer-header h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 600;
     color: #e4e4e7;
   }
@@ -101,7 +101,7 @@
     background: none;
     border: none;
     color: #888;
-    font-size: 28px;
+    font-size: 1.75rem;
     cursor: pointer;
     padding: 0;
     line-height: 1;

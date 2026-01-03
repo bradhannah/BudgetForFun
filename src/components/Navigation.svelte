@@ -6,6 +6,15 @@
   import { addToast } from '../stores/toast';
   import { apiClient } from '../lib/api/client';
   import { currentMonth, goToCurrentMonth, getCurrentMonth } from '../stores/ui';
+  import { 
+    isTauri, 
+    zoomLevel, 
+    zoomIn, 
+    zoomOut, 
+    resetZoom, 
+    getZoomPercentage,
+    ZOOM_CONFIG 
+  } from '../stores/settings';
   
   $: currentPath = $page.url.pathname;
   
@@ -15,6 +24,14 @@
   $: isManageActive = currentPath.startsWith('/manage');
   // Check if we're on the settings page
   $: isSettingsActive = currentPath.startsWith('/settings');
+  
+  // Check if in Tauri environment (for zoom controls)
+  $: inTauri = isTauri();
+  
+  // Current zoom percentage display
+  $: zoomPercentage = getZoomPercentage($zoomLevel);
+  $: canZoomIn = $zoomLevel < ZOOM_CONFIG.max;
+  $: canZoomOut = $zoomLevel > ZOOM_CONFIG.min;
   
   let backupLoading = false;
   let fileInput: HTMLInputElement | null = null;
@@ -247,8 +264,43 @@
     style="display: none;"
   />
   
-  <!-- Footer with Undo and Backup buttons -->
+  <!-- Footer with Zoom, Undo and Backup buttons -->
   <div class="sidebar-footer">
+    <!-- Zoom Control (Tauri only) -->
+    {#if inTauri}
+      <div class="zoom-control">
+        <button 
+          class="zoom-button"
+          on:click={() => zoomOut()}
+          disabled={!canZoomOut}
+          title="Zoom out (Ctrl+-)"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button 
+          class="zoom-percentage"
+          on:click={() => resetZoom()}
+          title="Reset to 100% (Ctrl+0)"
+        >
+          {zoomPercentage}
+        </button>
+        <button 
+          class="zoom-button"
+          on:click={() => zoomIn()}
+          disabled={!canZoomIn}
+          title="Zoom in (Ctrl++)"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5V19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="footer-separator"></div>
+    {/if}
+    
     <button 
       class="undo-button"
       on:click={handleUndo}
@@ -409,11 +461,71 @@
     flex-shrink: 0;
   }
   
-  /* Footer with undo and backup */
+  /* Footer with zoom, undo and backup */
   .sidebar-footer {
     margin-top: auto;
     padding: 12px;
     border-top: 1px solid #333355;
+  }
+  
+  /* Zoom control */
+  .zoom-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  
+  .zoom-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #333355;
+    border-radius: 6px;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .zoom-button:hover:not(:disabled) {
+    background: rgba(36, 200, 219, 0.1);
+    border-color: #24c8db;
+    color: #e4e4e7;
+  }
+  
+  .zoom-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  .zoom-percentage {
+    min-width: 50px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #888;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  
+  .zoom-percentage:hover {
+    background: rgba(36, 200, 219, 0.1);
+    color: #24c8db;
+  }
+  
+  .footer-separator {
+    border-top: 1px solid #333355;
+    margin: 0 0 8px 0;
   }
   
   .undo-button {

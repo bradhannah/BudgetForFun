@@ -122,7 +122,7 @@
     padding: 12px 16px;
     background: #16213e;
     border-bottom: 2px solid #333355;
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 600;
     text-transform: uppercase;
     color: #888;
@@ -165,19 +165,19 @@
   }
   
   .type-icon {
-    font-size: 18px;
+    font-size: 1.125rem;
     flex-shrink: 0;
   }
   
   .source-row .col-type {
-    font-size: 13px;
+    font-size: 0.8125rem;
   }
   
   .type-badge {
     display: inline-block;
     padding: 4px 10px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 500;
     background: rgba(36, 200, 219, 0.1);
     color: #24c8db;
@@ -189,7 +189,7 @@
   }
   
   .source-row .col-balance {
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 600;
     text-align: right;
     color: #e4e4e7;
@@ -239,7 +239,7 @@
     padding: 40px 20px;
     text-align: center;
     color: #666;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
   
   /* Totals Row */
@@ -263,14 +263,14 @@
   }
   
   .total-label {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: #888;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   
   .total-value {
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 700;
     color: #e4e4e7;
   }

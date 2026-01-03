@@ -187,7 +187,7 @@
 
   label {
     font-weight: 500;
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #e4e4e7;
   }
 
@@ -197,7 +197,7 @@
     border: 1px solid #333355;
     background: #0f0f0f;
     color: #fff;
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
 
   input:focus, select:focus {
@@ -211,7 +211,7 @@
   }
 
   .help-text {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #888;
     margin-top: 4px;
   }
@@ -237,7 +237,7 @@
   .color-preview {
     padding: 6px 12px;
     border-radius: 4px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: #fff;
     font-family: monospace;
   }
@@ -254,7 +254,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 

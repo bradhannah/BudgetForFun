@@ -2,14 +2,45 @@
   import { onMount, onDestroy } from 'svelte';
   import Navigation from '../components/Navigation.svelte';
   import ToastContainer from '../components/shared/ToastContainer.svelte';
-  import { isTauri } from '../stores/settings';
+  import { isTauri, loadZoom, zoomIn, zoomOut, resetZoom, ZOOM_CONFIG } from '../stores/settings';
   
   let backendReady = false;
   let backendError: string | null = null;
   let unlistenReady: (() => void) | null = null;
   let unlistenError: (() => void) | null = null;
   
+  // Handle keyboard shortcuts for zoom (Ctrl+/-/0)
+  function handleKeydown(event: KeyboardEvent) {
+    // Only handle zoom shortcuts in Tauri
+    if (!isTauri()) return;
+    
+    const isMod = event.ctrlKey || event.metaKey;
+    if (!isMod) return;
+    
+    // Zoom in: Ctrl/Cmd + = or Ctrl/Cmd + +
+    if (event.key === '=' || event.key === '+') {
+      event.preventDefault();
+      zoomIn();
+    }
+    // Zoom out: Ctrl/Cmd + -
+    else if (event.key === '-') {
+      event.preventDefault();
+      zoomOut();
+    }
+    // Reset zoom: Ctrl/Cmd + 0
+    else if (event.key === '0') {
+      event.preventDefault();
+      resetZoom();
+    }
+  }
+  
   onMount(async () => {
+    // Load zoom setting on startup (applies zoom in Tauri)
+    await loadZoom();
+    
+    // Add keyboard listener for zoom shortcuts
+    window.addEventListener('keydown', handleKeydown);
+    
     // In browser dev mode, backend is always ready (separate process)
     if (!isTauri()) {
       backendReady = true;
@@ -48,6 +79,7 @@
   });
   
   onDestroy(() => {
+    window.removeEventListener('keydown', handleKeydown);
     unlistenReady?.();
     unlistenError?.();
   });
@@ -86,7 +118,7 @@
 <ToastContainer />
 
 <style>
-  :global(:root) {
+:global(:root) {
     font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
     font-size: 16px;
     line-height: 1.5;

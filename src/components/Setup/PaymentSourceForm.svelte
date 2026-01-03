@@ -207,7 +207,7 @@
 
   label {
     font-weight: 500;
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #e4e4e7;
   }
 
@@ -217,7 +217,7 @@
     border: 1px solid #333355;
     background: #0f0f0f;
     color: #fff;
-    font-size: 15px;
+    font-size: 0.9375rem;
     height: 46px;
     box-sizing: border-box;
   }
@@ -242,7 +242,7 @@
     position: absolute;
     left: 12px;
     color: #888;
-    font-size: 15px;
+    font-size: 0.9375rem;
     pointer-events: none;
   }
 
@@ -252,7 +252,7 @@
   }
 
   .help-text {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #24c8db;
     margin-top: 4px;
   }
@@ -306,12 +306,12 @@
   }
 
   .checkbox-text strong {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #e4e4e7;
   }
 
   .checkbox-description {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #888;
   }
 
@@ -327,7 +327,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 

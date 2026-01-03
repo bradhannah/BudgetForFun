@@ -162,7 +162,7 @@
     padding: 12px 16px;
     background: #16213e;
     border-bottom: 2px solid #333355;
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 600;
     text-transform: uppercase;
     color: #888;
@@ -195,20 +195,20 @@
   
   .collapse-icon {
     font-family: monospace;
-    font-size: 12px;
+    font-size: 0.75rem;
     width: 12px;
     color: #888;
   }
   
   .category-name {
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--cat-color);
     letter-spacing: 0.5px;
   }
   
   .category-count {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: #666;
   }
   
@@ -224,7 +224,7 @@
   .empty-category {
     padding: 16px 16px 16px 44px;
     color: #666;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-style: italic;
   }
   
@@ -254,12 +254,12 @@
   }
   
   .bill-row .col-period {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: #888;
   }
   
   .bill-row .col-source {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: #888;
     white-space: nowrap;
     overflow: hidden;
@@ -267,7 +267,7 @@
   }
   
   .bill-row .col-amount {
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
     color: #ff6b6b;
     text-align: right;
@@ -313,7 +313,7 @@
   .category-subtotal {
     padding: 8px 16px;
     text-align: right;
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: #888;
     border-bottom: 1px solid #2a2a4a;
   }
@@ -331,14 +331,14 @@
   }
   
   .total-label {
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 600;
     color: #e4e4e7;
     letter-spacing: 0.5px;
   }
   
   .total-value {
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: bold;
     color: #ff6b6b;
   }

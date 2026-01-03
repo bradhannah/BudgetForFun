@@ -9,6 +9,183 @@ import { writable, derived } from 'svelte/store';
 import { apiClient } from '$lib/api/client';
 import { isTauri as checkIsTauri } from '@tauri-apps/api/core';
 
+// ============================================================================
+// Zoom Settings - Native Tauri WebView Zoom
+// ============================================================================
+
+// Zoom configuration
+export const ZOOM_CONFIG = {
+  min: 0.5,      // 50%
+  max: 2.0,      // 200%
+  step: 0.1,     // 10% per increment
+  default: 1.0   // 100%
+};
+
+// Preset zoom levels for UI buttons (kept for backward compat with Settings page)
+export type FontSize = 'small' | 'medium' | 'large' | 'xlarge';
+
+export const FONT_SIZE_LABELS: Record<FontSize, string> = {
+  small: 'Small',
+  medium: 'Medium',
+  large: 'Large',
+  xlarge: 'X-Large'
+};
+
+export const FONT_SCALE_MAP: Record<FontSize, number> = {
+  small: 0.85,    // 85% zoom
+  medium: 1.0,    // 100% zoom (default)
+  large: 1.15,    // 115% zoom
+  xlarge: 1.30    // 130% zoom
+};
+
+// Zoom level store - stores the actual numeric zoom factor (0.5 to 2.0)
+const zoomLevelWritable = writable<number>(ZOOM_CONFIG.default);
+export const zoomLevel = derived(zoomLevelWritable, z => z);
+
+// For backward compatibility - derive FontSize from zoom level
+export const uiScale = derived(zoomLevelWritable, (z): FontSize => {
+  if (z <= 0.85) return 'small';
+  if (z <= 1.0) return 'medium';
+  if (z <= 1.15) return 'large';
+  return 'xlarge';
+});
+
+// Backward compat
+export const uiScaleFactor = zoomLevel;
+
+/**
+ * Apply zoom to the Tauri webview (or no-op in browser)
+ * This is the core function that actually sets the zoom level
+ */
+export async function applyZoom(level: number): Promise<void> {
+  // Clamp to valid range
+  const clampedLevel = Math.max(ZOOM_CONFIG.min, Math.min(ZOOM_CONFIG.max, level));
+  
+  if (isTauri()) {
+    try {
+      const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+      const webview = getCurrentWebview();
+      await webview.setZoom(clampedLevel);
+      console.log('[Settings] Zoom applied:', clampedLevel);
+    } catch (e) {
+      console.error('[Settings] Failed to apply zoom:', e);
+    }
+  } else {
+    // Browser: let browser handle its own zoom, don't interfere
+    console.log('[Settings] Browser mode - zoom not applied (use browser zoom)');
+  }
+}
+
+/**
+ * Load zoom setting from storage and apply it
+ */
+export async function loadZoom(): Promise<number> {
+  let savedZoom = ZOOM_CONFIG.default;
+  
+  if (isTauri()) {
+    try {
+      const { Store } = await import('@tauri-apps/plugin-store');
+      const store = await Store.load('settings.json');
+      const value = await store.get('zoomLevel') as number | undefined;
+      if (value !== undefined && value >= ZOOM_CONFIG.min && value <= ZOOM_CONFIG.max) {
+        savedZoom = value;
+      }
+    } catch (e) {
+      console.error('[Settings] Failed to load zoom from Tauri Store:', e);
+    }
+  } else {
+    // Browser fallback - use localStorage
+    const value = localStorage.getItem('budgetforfun_zoom');
+    if (value) {
+      const parsed = parseFloat(value);
+      if (!isNaN(parsed) && parsed >= ZOOM_CONFIG.min && parsed <= ZOOM_CONFIG.max) {
+        savedZoom = parsed;
+      }
+    }
+  }
+  
+  zoomLevelWritable.set(savedZoom);
+  await applyZoom(savedZoom);
+  return savedZoom;
+}
+
+/**
+ * Save zoom setting to storage
+ */
+async function saveZoom(level: number): Promise<void> {
+  const clampedLevel = Math.max(ZOOM_CONFIG.min, Math.min(ZOOM_CONFIG.max, level));
+  
+  if (isTauri()) {
+    try {
+      const { Store } = await import('@tauri-apps/plugin-store');
+      const store = await Store.load('settings.json');
+      await store.set('zoomLevel', clampedLevel);
+      await store.save();
+    } catch (e) {
+      console.error('[Settings] Failed to save zoom to Tauri Store:', e);
+    }
+  } else {
+    // Browser fallback - use localStorage
+    localStorage.setItem('budgetforfun_zoom', clampedLevel.toString());
+  }
+}
+
+/**
+ * Set zoom to a specific level
+ */
+export async function setZoom(level: number): Promise<void> {
+  const clampedLevel = Math.max(ZOOM_CONFIG.min, Math.min(ZOOM_CONFIG.max, level));
+  // Round to 2 decimal places to avoid floating point issues
+  const roundedLevel = Math.round(clampedLevel * 100) / 100;
+  
+  zoomLevelWritable.set(roundedLevel);
+  await applyZoom(roundedLevel);
+  await saveZoom(roundedLevel);
+}
+
+/**
+ * Zoom in by one step (10%)
+ */
+export async function zoomIn(): Promise<void> {
+  let current = ZOOM_CONFIG.default;
+  zoomLevelWritable.subscribe(v => current = v)();
+  await setZoom(current + ZOOM_CONFIG.step);
+}
+
+/**
+ * Zoom out by one step (10%)
+ */
+export async function zoomOut(): Promise<void> {
+  let current = ZOOM_CONFIG.default;
+  zoomLevelWritable.subscribe(v => current = v)();
+  await setZoom(current - ZOOM_CONFIG.step);
+}
+
+/**
+ * Reset zoom to 100%
+ */
+export async function resetZoom(): Promise<void> {
+  await setZoom(ZOOM_CONFIG.default);
+}
+
+/**
+ * Get current zoom level as percentage string (e.g., "100%")
+ */
+export function getZoomPercentage(level: number): string {
+  return `${Math.round(level * 100)}%`;
+}
+
+// Backward compatibility aliases
+export const loadUIScale = loadZoom;
+export async function saveUIScale(size: FontSize): Promise<void> {
+  const level = FONT_SCALE_MAP[size] || ZOOM_CONFIG.default;
+  await setZoom(level);
+}
+
+// ============================================================================
+// End Zoom Settings
+// ============================================================================
+
 /**
  * Check if running in Tauri environment
  * Uses the official Tauri API detection

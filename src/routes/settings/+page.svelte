@@ -46,7 +46,7 @@
   let backupLoading = false;
   let fileInput: HTMLInputElement | null = null;
   
-  onMount(() => {
+  onMount(async () => {
     loadSettings().catch(err => {
       console.error('Failed to load settings:', err);
     });
@@ -351,9 +351,35 @@
         {/if}
       </section>
       
-      <!-- Appearance Section (Future) -->
-      <section class="settings-section disabled">
+      <!-- Appearance Section -->
+      <section class="settings-section">
         <h2>Appearance</h2>
+        <div class="setting-item">
+          <label>Zoom</label>
+          <p class="setting-description">
+            Adjust the zoom level using the controls in the sidebar footer, or use keyboard shortcuts:
+          </p>
+          <div class="keyboard-shortcuts">
+            <div class="shortcut-row">
+              <span class="shortcut-key">Ctrl/Cmd + +</span>
+              <span class="shortcut-desc">Zoom in</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-key">Ctrl/Cmd + -</span>
+              <span class="shortcut-desc">Zoom out</span>
+            </div>
+            <div class="shortcut-row">
+              <span class="shortcut-key">Ctrl/Cmd + 0</span>
+              <span class="shortcut-desc">Reset to 100%</span>
+            </div>
+          </div>
+          {#if !inTauri}
+            <p class="setting-hint warning">
+              Note: Native zoom only works in the desktop app. Use your browser's zoom controls in browser mode.
+            </p>
+          {/if}
+        </div>
+        
         <div class="setting-item">
           <label>Theme</label>
           <div class="radio-group">
@@ -1087,5 +1113,47 @@
     margin-bottom: 4px;
     font-family: monospace;
     font-size: 0.875rem;
+  }
+  
+  /* Font Size Options */
+  .setting-description {
+    font-size: 0.75rem;
+    color: #888;
+    margin: 0 0 12px 0;
+  }
+  
+  /* Keyboard shortcuts display */
+  .keyboard-shortcuts {
+    background: #0f0f1a;
+    border: 1px solid #333355;
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 6px 0;
+  }
+  
+  .shortcut-row:not(:last-child) {
+    border-bottom: 1px solid #333355;
+  }
+  
+  .shortcut-key {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #24c8db;
+    background: rgba(36, 200, 219, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    min-width: 100px;
+    text-align: center;
+  }
+  
+  .shortcut-desc {
+    font-size: 0.75rem;
+    color: #888;
   }
 </style>

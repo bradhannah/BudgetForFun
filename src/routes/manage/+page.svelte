@@ -268,7 +268,7 @@
   .back-link {
     color: #24c8db;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
@@ -278,7 +278,7 @@
 
   .manage-header h1 {
     margin: 0;
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 600;
   }
 
@@ -331,14 +331,14 @@
 
   .month-name {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 600;
   }
 
   .month-badge {
     padding: 4px 12px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 500;
   }
 
@@ -371,13 +371,13 @@
   }
 
   .stat-label {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #888;
     text-transform: uppercase;
   }
 
   .stat-value {
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 600;
   }
 
@@ -420,7 +420,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     transition: all 0.15s ease;
   }

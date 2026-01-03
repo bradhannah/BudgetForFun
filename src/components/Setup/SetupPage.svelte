@@ -423,7 +423,7 @@
   .back-link {
     color: #24c8db;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
@@ -433,7 +433,7 @@
 
   .setup-header h1 {
     margin: 0;
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 600;
   }
 
@@ -463,7 +463,7 @@
     background: none;
     color: #888;
     text-align: left;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -495,7 +495,7 @@
 
   .content-header h2 {
     margin: 0;
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: 600;
   }
 
@@ -540,18 +540,18 @@
 
   .card-name {
     font-weight: 600;
-    font-size: 16px;
+    font-size: 1rem;
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
   .type-icon {
-    font-size: 18px;
+    font-size: 1.125rem;
   }
 
   .card-badge {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #24c8db;
     padding: 4px 10px;
     background: rgba(36, 200, 219, 0.1);
@@ -569,12 +569,12 @@
   }
 
   .card-meta {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: #888;
   }
 
   .card-amount {
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: bold;
   }
 
@@ -596,7 +596,7 @@
   }
 
   .empty-state .hint {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #666;
   }
 
@@ -622,12 +622,12 @@
 
   .total-label {
     font-weight: 600;
-    font-size: 16px;
+    font-size: 1rem;
     color: #e4e4e7;
   }
 
   .total-value {
-    font-size: 22px;
+    font-size: 1.375rem;
     font-weight: bold;
   }
 
@@ -637,7 +637,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
@@ -655,7 +655,7 @@
     border-radius: 4px;
     border: none;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 500;
   }
 

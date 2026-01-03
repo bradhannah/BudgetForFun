@@ -101,24 +101,24 @@
   }
 
   label {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #888;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
   .view-value {
-    font-size: 16px;
+    font-size: 1rem;
     color: #e4e4e7;
   }
 
   .view-value.amount {
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: bold;
   }
 
   .view-value.muted {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #888;
   }
 
@@ -136,7 +136,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
