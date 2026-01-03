@@ -290,6 +290,9 @@
         tallies={$detailedMonthData.tallies}
         leftoverBreakdown={$detailedMonthData.leftoverBreakdown}
         payoffSummaries={$detailedMonthData.payoffSummaries ?? []}
+        {month}
+        readOnly={$monthIsReadOnly}
+        on:refresh={refreshData}
       />
       
       <!-- Right: Main Content -->

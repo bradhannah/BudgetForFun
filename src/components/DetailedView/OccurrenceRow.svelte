@@ -15,6 +15,9 @@
   let saving = false;
   let isEditingExpected = false;
   let expectedEditValue = '';
+  let isEditingDate = false;
+  let editingDayValue = '';
+  let showDeleteConfirm = false;
   
   function formatCurrency(cents: number): string {
     const dollars = cents / 100;
@@ -25,10 +28,21 @@
     }).format(dollars);
   }
   
-  function formatDate(dateStr: string | null): string {
+  function formatDayOfMonth(dateStr: string | null): string {
     if (!dateStr) return '-';
-    const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const day = parseInt(dateStr.split('-')[2], 10);
+    const suffix = getDaySuffix(day);
+    return `${day}${suffix}`;
+  }
+  
+  function getDaySuffix(day: number): string {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
   }
   
   function parseDollarsToCents(value: string): number {
@@ -148,6 +162,84 @@
     }
   }
   
+  // Date editing functions
+  function startEditingDate() {
+    if (readOnly || occurrence.is_closed) return;
+    const day = parseInt(occurrence.expected_date?.split('-')[2] || '1', 10);
+    editingDayValue = day.toString();
+    isEditingDate = true;
+  }
+  
+  async function saveDate() {
+    const newDay = parseInt(editingDayValue, 10);
+    if (isNaN(newDay) || newDay < 1 || newDay > 31) {
+      showError('Please enter a valid day (1-31)');
+      return;
+    }
+    
+    // Build new date string
+    const [year, monthNum] = month.split('-');
+    const newDate = `${year}-${monthNum}-${newDay.toString().padStart(2, '0')}`;
+    
+    if (newDate === occurrence.expected_date) {
+      isEditingDate = false;
+      return;
+    }
+    
+    saving = true;
+    try {
+      await apiClient.putPath(apiBase, {
+        expected_date: newDate
+      });
+      success('Date updated');
+      isEditingDate = false;
+      dispatch('updated');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to update date');
+    } finally {
+      saving = false;
+    }
+  }
+  
+  function cancelEditingDate() {
+    isEditingDate = false;
+    editingDayValue = '';
+  }
+  
+  function handleDateKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      saveDate();
+    } else if (event.key === 'Escape') {
+      cancelEditingDate();
+    }
+  }
+  
+  // Delete occurrence
+  function confirmDelete() {
+    if (readOnly || !occurrence.is_adhoc) return;
+    showDeleteConfirm = true;
+  }
+  
+  function cancelDelete() {
+    showDeleteConfirm = false;
+  }
+  
+  async function handleDelete() {
+    if (saving) return;
+    saving = true;
+    showDeleteConfirm = false;
+    
+    try {
+      await apiClient.deletePath(apiBase);
+      success('Occurrence deleted');
+      dispatch('updated');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to delete');
+    } finally {
+      saving = false;
+    }
+  }
+  
   function openPaymentDrawer() {
     dispatch('openPayments', { occurrence });
   }
@@ -159,15 +251,34 @@
   class:partial={isPartiallyPaid}
   class:adhoc={occurrence.is_adhoc}
 >
-  <!-- Date -->
+  <!-- Date (clickable to edit day of month) -->
   <div class="occ-date">
-    {#if occurrence.is_closed && occurrence.closed_date}
-      <span class="closed-date">{formatDate(occurrence.closed_date)}</span>
+    {#if isEditingDate}
+      <div class="date-edit">
+        <input
+          type="number"
+          min="1"
+          max="31"
+          class="date-input"
+          bind:value={editingDayValue}
+          on:keydown={handleDateKeydown}
+          on:blur={saveDate}
+          disabled={saving}
+          autofocus
+        />
+      </div>
+    {:else if occurrence.is_closed && occurrence.closed_date}
+      <span class="closed-date">{formatDayOfMonth(occurrence.closed_date)}</span>
     {:else}
-      <span class="expected-date">{formatDate(occurrence.expected_date)}</span>
-    {/if}
-    {#if occurrence.is_adhoc}
-      <span class="badge adhoc-badge">ad-hoc</span>
+      <button 
+        class="date-value" 
+        class:editable={!readOnly && !occurrence.is_closed}
+        on:click={startEditingDate}
+        title={occurrence.is_closed ? 'Reopen to edit' : 'Click to edit date'}
+        disabled={readOnly || occurrence.is_closed}
+      >
+        {formatDayOfMonth(occurrence.expected_date)}
+      </button>
     {/if}
   </div>
   
@@ -190,6 +301,7 @@
       <button 
         class="amount-value clickable" 
         class:disabled={occurrence.is_closed}
+        class:editable-highlight={!occurrence.is_closed && !readOnly}
         on:click={startEditingExpected}
         title={occurrence.is_closed ? 'Reopen to edit' : 'Click to edit'}
       >
@@ -225,6 +337,14 @@
     {/if}
   </div>
   
+  <!-- Remaining amount -->
+  <div class="amount-column remaining-column">
+    <span class="amount-label">Remaining</span>
+    <span class="amount-value remaining" class:zero={remaining === 0}>
+      {remaining === 0 ? '-' : formatCurrency(remaining)}
+    </span>
+  </div>
+  
   <!-- Status indicator -->
   <div class="status-column">
     {#if occurrence.is_closed}
@@ -255,19 +375,63 @@
         {type === 'bill' ? 'Pay Full' : 'Receive'}
       </button>
     {/if}
+    
+    <!-- Delete button for all occurrences -->
+    {#if !readOnly}
+      <button 
+        class="action-btn-icon delete" 
+        on:click={confirmDelete}
+        disabled={saving}
+        title="Delete occurrence"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
+    {/if}
+  </div>
+  
+  <!-- Badges column (at the end to prevent pushing other columns) -->
+  <div class="badges-column">
+    {#if occurrence.is_adhoc}
+      <span class="badge adhoc-badge">ad-hoc</span>
+    {/if}
   </div>
 </div>
 
+<!-- Delete Confirmation Dialog -->
+{#if showDeleteConfirm}
+  <div class="confirm-overlay" on:click={cancelDelete} on:keydown={(e) => e.key === 'Escape' && cancelDelete()} role="dialog" aria-modal="true" tabindex="-1">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="confirm-dialog" on:click|stopPropagation>
+      <h3>Delete Occurrence</h3>
+      <p>Are you sure you want to delete this occurrence?</p>
+      <p class="confirm-warning">This action cannot be undone.</p>
+      <div class="confirm-actions">
+        <button class="confirm-btn cancel" on:click={cancelDelete}>Cancel</button>
+        <button class="confirm-btn delete" on:click={handleDelete} disabled={saving}>
+          {saving ? 'Deleting...' : 'Delete'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .occurrence-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 45px 85px 20px 85px 70px 65px 90px 50px;
     align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 6px 12px;
+    padding-left: 20px; /* Indent for sub-row appearance */
     background: rgba(255, 255, 255, 0.02);
     border-radius: 6px;
     border-left: 2px solid transparent;
     transition: all 0.15s ease;
+    font-size: 0.8rem; /* Smaller font for occurrence rows */
   }
   
   .occurrence-row:hover {
@@ -288,24 +452,70 @@
   }
   
   .occ-date {
-    min-width: 90px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
   }
   
-  .expected-date {
-    font-size: 0.85rem;
+  .date-value {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    font-size: 0.8rem;
     color: #888;
+    cursor: default;
+    border-radius: 4px;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  
+  .date-value.editable {
+    cursor: pointer;
+  }
+  
+  .date-value.editable:hover {
+    background: rgba(36, 200, 219, 0.1);
+    color: #24c8db;
   }
   
   .closed-date {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #4ade80;
+    text-align: center;
+  }
+  
+  .date-edit {
+    display: flex;
+    align-items: center;
+  }
+  
+  .date-input {
+    width: 40px;
+    padding: 2px 4px;
+    background: #0f0f1a;
+    border: 1px solid #24c8db;
+    border-radius: 4px;
+    color: #e4e4e7;
+    font-size: 0.75rem;
+    text-align: center;
+  }
+  
+  .date-input:focus {
+    outline: none;
+  }
+  
+  /* Hide spinner buttons */
+  .date-input::-webkit-outer-spin-button,
+  .date-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .date-input[type=number] {
+    -moz-appearance: textfield;
   }
   
   .badge {
-    font-size: 0.55rem;
+    font-size: 0.5rem;
     padding: 1px 4px;
     border-radius: 3px;
     text-transform: uppercase;
@@ -317,9 +527,16 @@
     color: #a78bfa;
   }
   
+  .badges-column {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  
   .arrow {
     color: #555;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
+    text-align: center;
   }
   
   .amount-column {
@@ -327,11 +544,14 @@
     flex-direction: column;
     align-items: flex-end;
     gap: 2px;
-    min-width: 70px;
+  }
+  
+  .remaining-column {
+    /* No extra styles needed with grid */
   }
   
   .amount-label {
-    font-size: 0.55rem;
+    font-size: 0.5rem;
     color: #666;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -345,7 +565,7 @@
   }
   
   .amount-value {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
     color: #e4e4e7;
     background: none;
@@ -373,11 +593,33 @@
     color: #f59e0b;
   }
   
+  .amount-value.remaining {
+    color: #888;
+  }
+  
+  .amount-value.remaining.zero {
+    color: #4ade80;
+  }
+  
+  /* Yellow/amber highlight for editable values */
+  .amount-value.editable-highlight {
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  
+  .amount-value.editable-highlight:hover:not(.disabled) {
+    background: rgba(251, 191, 36, 0.25);
+    border-color: rgba(251, 191, 36, 0.6);
+    color: #fbbf24;
+  }
+  
   .add-payment-link {
     background: none;
     border: none;
     color: #24c8db;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     padding: 0;
     cursor: pointer;
     text-decoration: underline;
@@ -396,17 +638,17 @@
   
   .inline-edit .prefix {
     color: #888;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
   
   .inline-edit input {
-    width: 60px;
+    width: 55px;
     padding: 2px 4px;
     background: #0f0f1a;
     border: 1px solid #24c8db;
     border-radius: 4px;
     color: #e4e4e7;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-align: right;
   }
@@ -416,15 +658,14 @@
   }
   
   .status-column {
-    min-width: 70px;
     display: flex;
     justify-content: center;
   }
   
   .status-badge {
-    font-size: 0.65rem;
-    padding: 2px 8px;
-    border-radius: 10px;
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    border-radius: 8px;
     font-weight: 500;
   }
   
@@ -445,24 +686,29 @@
   
   .action-buttons {
     display: flex;
-    gap: 6px;
-    min-width: 70px;
-    justify-content: flex-end;
+    gap: 4px;
+    justify-content: flex-start;
   }
   
   .action-btn {
-    padding: 4px 10px;
-    border-radius: 5px;
-    font-size: 0.7rem;
+    height: 24px;
+    box-sizing: border-box;
+    padding: 0 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
   }
   
   .action-btn.pay-full {
     background: #24c8db;
-    border: none;
+    border-color: #24c8db;
     color: #000;
   }
   
@@ -472,7 +718,7 @@
   
   .action-btn.close {
     background: transparent;
-    border: 1px solid #4ade80;
+    border-color: #4ade80;
     color: #4ade80;
   }
   
@@ -482,7 +728,7 @@
   
   .action-btn.reopen {
     background: transparent;
-    border: 1px solid #888;
+    border-color: #888;
     color: #888;
   }
   
@@ -496,10 +742,120 @@
     cursor: not-allowed;
   }
   
+  /* Delete icon button */
+  .action-btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .action-btn-icon:hover:not(:disabled) {
+    background: rgba(255, 68, 68, 0.1);
+    color: #ff4444;
+  }
+  
+  .action-btn-icon.delete:hover:not(:disabled) {
+    background: #ff4444;
+    color: #fff;
+  }
+  
+  .action-btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  /* Confirmation dialog */
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .confirm-dialog {
+    background: #1a1a2e;
+    border: 1px solid #333355;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 360px;
+    width: 90%;
+  }
+  
+  .confirm-dialog h3 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+    color: #e4e4e7;
+  }
+  
+  .confirm-dialog p {
+    margin: 0 0 6px;
+    color: #a0a0a0;
+    font-size: 0.85rem;
+  }
+  
+  .confirm-warning {
+    color: #f87171 !important;
+    font-size: 0.75rem !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  
+  .confirm-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .confirm-btn.cancel {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+  }
+  
+  .confirm-btn.cancel:hover {
+    border-color: #666;
+    color: #e4e4e7;
+  }
+  
+  .confirm-btn.delete {
+    background: #ff4444;
+    border: none;
+    color: #fff;
+  }
+  
+  .confirm-btn.delete:hover:not(:disabled) {
+    background: #cc3333;
+  }
+  
+  .confirm-btn.delete:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   @media (max-width: 640px) {
     .occurrence-row {
+      display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
     }
     
     .occ-date {
@@ -515,13 +871,13 @@
       display: none;
     }
     
-    .status-column {
-      min-width: auto;
-    }
-    
     .action-buttons {
       width: 100%;
       justify-content: flex-start;
+    }
+    
+    .badges-column {
+      width: 100%;
     }
   }
 </style>

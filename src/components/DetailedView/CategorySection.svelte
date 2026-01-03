@@ -32,11 +32,11 @@
     return 'bill_id' in item;
   }
   
-  // Check if item has multiple occurrences (non-monthly billing)
+  // Check if item has multiple occurrences
+  // Show as OccurrenceCard if there are multiple occurrences (regardless of billing period)
+  // This handles: bi-weekly, weekly, AND monthly items with manually-added occurrences
   function hasMultipleOccurrences(item: BillInstanceDetailed | IncomeInstanceDetailed): boolean {
-    const period = item.billing_period;
-    return (period === 'bi_weekly' || period === 'weekly') && 
-           item.occurrences && item.occurrences.length > 1;
+    return item.occurrences && item.occurrences.length > 1;
   }
   
   $: showAmber = section.subtotal.actual > 0 && section.subtotal.actual !== section.subtotal.expected;

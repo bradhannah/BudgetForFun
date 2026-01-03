@@ -75,7 +75,7 @@
       
       await apiClient.post(`/api/months/${month}/${type}s/${item.id}/occurrences`, {
         expected_date: defaultDate,
-        expected_amount: item.expected_amount / occurrenceCount // Split amount
+        expected_amount: item.expected_amount // Full amount
       });
       
       success('Occurrence added');

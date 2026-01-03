@@ -20,6 +20,8 @@
   let showDeleteConfirm = false;
   let isEditingExpected = false;
   let expectedEditValue = '';
+  let isEditingDueDay = false;
+  let editingDayValue = '';
   let saving = false;
   
   function formatCurrency(cents: number): string {
@@ -37,6 +39,23 @@
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
   
+  function formatDayOfMonth(dateStr: string | null): string {
+    if (!dateStr) return '';
+    const day = parseInt(dateStr.split('-')[2], 10);
+    const suffix = getDaySuffix(day);
+    return `${day}${suffix}`;
+  }
+  
+  function getDaySuffix(day: number): string {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  }
+  
   function parseDollarsToCents(value: string): number {
     const dollars = parseFloat(value.replace(/[^0-9.-]/g, ''));
     return isNaN(dollars) ? 0 : Math.round(dollars * 100);
@@ -51,7 +70,43 @@
   $: isPartiallyPaid = hasTransactions && bill.total_paid > 0 && bill.total_paid < bill.expected_amount && !isClosed;
   $: isPayoffBill = bill.is_payoff_bill ?? false;
   
+  // Single-occurrence detection for "on Xth" display
+  $: occurrences = (bill as any).occurrences ?? [];
+  $: isSingleOccurrence = occurrences.length <= 1;
+  $: firstOccurrenceDate = occurrences[0]?.expected_date || bill.due_date;
+  
+  // Helper to get last day of month from month string (YYYY-MM)
+  function getLastDayOfMonth(monthStr: string): string {
+    const [year, monthNum] = monthStr.split('-').map(Number);
+    // Day 0 of next month = last day of current month
+    const lastDay = new Date(year, monthNum, 0).getDate();
+    return `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+  }
+  
   // Actions
+  async function handleAddOccurrence() {
+    if (saving || readOnly || !month) return;
+    
+    saving = true;
+    try {
+      // Add occurrence at end of month with full expected amount
+      const expectedDate = getLastDayOfMonth(month);
+      const expectedAmount = bill.expected_amount;
+      
+      await apiClient.post(`/api/months/${month}/bills/${bill.id}/occurrences`, {
+        expected_date: expectedDate,
+        expected_amount: expectedAmount
+      });
+      
+      success('Occurrence added');
+      dispatch('refresh');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to add occurrence');
+    } finally {
+      saving = false;
+    }
+  }
+  
   async function handlePayFull() {
     if (saving) return;
     saving = true;
@@ -160,6 +215,66 @@
     }
   }
   
+  // Due day editing functions
+  function startEditingDueDay() {
+    if (readOnly || isClosed || !isSingleOccurrence) return;
+    const day = parseInt(firstOccurrenceDate?.split('-')[2] || '1', 10);
+    editingDayValue = day.toString();
+    isEditingDueDay = true;
+  }
+  
+  async function saveDueDay() {
+    let newDay = parseInt(editingDayValue, 10);
+    if (isNaN(newDay) || newDay < 1) {
+      showError('Please enter a valid day (1-31)');
+      return;
+    }
+    
+    // Cap at last day of month
+    const [year, monthNum] = month.split('-').map(Number);
+    const lastDayOfMonth = new Date(year, monthNum, 0).getDate();
+    newDay = Math.min(newDay, lastDayOfMonth);
+    
+    const newDate = `${month}-${newDay.toString().padStart(2, '0')}`;
+    
+    if (newDate === firstOccurrenceDate) {
+      isEditingDueDay = false;
+      return;
+    }
+    
+    saving = true;
+    try {
+      const occurrenceId = occurrences[0]?.id;
+      if (!occurrenceId) {
+        showError('No occurrence found to update');
+        return;
+      }
+      await apiClient.putPath(`/api/months/${month}/bills/${bill.id}/occurrences/${occurrenceId}`, {
+        expected_date: newDate
+      });
+      success('Due date updated');
+      isEditingDueDay = false;
+      dispatch('refresh');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to update date');
+    } finally {
+      saving = false;
+    }
+  }
+  
+  function cancelEditingDueDay() {
+    isEditingDueDay = false;
+    editingDayValue = '';
+  }
+  
+  function handleDueDayKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      saveDueDay();
+    } else if (event.key === 'Escape') {
+      cancelEditingDueDay();
+    }
+  }
+  
   function openTransactionsDrawer() {
     showTransactionsDrawer = true;
   }
@@ -219,6 +334,27 @@
       <div class="bill-info">
         <span class="bill-name" class:closed-text={isClosed}>
           {bill.name}
+          {#if isSingleOccurrence && firstOccurrenceDate && !isClosed && !isPayoffBill}
+            {#if isEditingDueDay}
+              <span class="due-day-edit">
+                on <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  class="due-day-input"
+                  bind:value={editingDayValue}
+                  on:keydown={handleDueDayKeydown}
+                  on:blur={saveDueDay}
+                  disabled={saving}
+                  autofocus
+                />
+              </span>
+            {:else}
+              <button class="due-day" on:click={startEditingDueDay} title="Click to edit due date">
+                on {formatDayOfMonth(firstOccurrenceDate)}
+              </button>
+            {/if}
+          {/if}
           {#if isPayoffBill}
             <span class="badge payoff-badge">payoff</span>
           {/if}
@@ -277,6 +413,7 @@
           <button 
             class="amount-value clickable" 
             class:disabled={isClosed}
+            class:editable-highlight={!isClosed && !isPayoffBill}
             on:click={startEditingExpected}
             title={isClosed ? 'Reopen to edit' : 'Click to edit'}
           >
@@ -330,6 +467,21 @@
         {:else if month}
           <button class="action-btn pay-full" on:click={handlePayFull} disabled={saving || readOnly}>
             Pay Full
+          </button>
+        {/if}
+        
+        <!-- Add occurrence button (not for payoff bills, not when closed) -->
+        {#if !readOnly && !isPayoffBill && !isClosed && month}
+          <button 
+            class="action-btn-icon add" 
+            on:click={handleAddOccurrence} 
+            disabled={saving}
+            title="Add occurrence"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
           </button>
         {/if}
         
@@ -473,6 +625,53 @@
     opacity: 0.6;
   }
   
+  .due-day {
+    font-weight: 400;
+    color: #888;
+    font-size: 0.85rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  
+  .due-day:hover {
+    color: #24c8db;
+    text-decoration: underline;
+  }
+  
+  .due-day-edit {
+    font-weight: 400;
+    color: #888;
+    font-size: 0.85rem;
+  }
+  
+  .due-day-input {
+    width: 35px;
+    padding: 1px 4px;
+    background: #0f0f1a;
+    border: 1px solid #24c8db;
+    border-radius: 4px;
+    color: #e4e4e7;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+  
+  .due-day-input:focus {
+    outline: none;
+  }
+  
+  /* Hide spinner buttons */
+  .due-day-input::-webkit-outer-spin-button,
+  .due-day-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .due-day-input[type=number] {
+    -moz-appearance: textfield;
+  }
+  
   .badge {
     font-size: 0.625rem;
     padding: 2px 6px;
@@ -592,6 +791,20 @@
   
   .amount-value.amber {
     color: #f59e0b;
+  }
+  
+  /* Yellow/amber highlight for editable values */
+  .amount-value.editable-highlight {
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  
+  .amount-value.editable-highlight:hover:not(.disabled) {
+    background: rgba(251, 191, 36, 0.25);
+    border-color: rgba(251, 191, 36, 0.6);
+    color: #fbbf24;
   }
   
   .amount-value.synced {
@@ -791,6 +1004,11 @@
   .action-btn-icon.delete:hover:not(:disabled) {
     background: #ff4444;
     color: #fff;
+  }
+  
+  .action-btn-icon.add:hover:not(:disabled) {
+    background: rgba(36, 200, 219, 0.15);
+    color: #24c8db;
   }
   
   .action-btn-icon:disabled {

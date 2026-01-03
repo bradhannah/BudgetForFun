@@ -554,8 +554,42 @@ export class MonthsServiceImpl implements MonthsService {
         throw new Error(`Monthly data for ${month} not found`);
       }
       
+      const now = new Date().toISOString();
+      
+      // Update bank balances
       data.bank_balances = balances;
-      data.updated_at = new Date().toISOString();
+      data.updated_at = now;
+      
+      // Also update payoff bills' expected_amount when their source's balance changes
+      // Find all payoff bills and update their expected_amount to match the new balance
+      for (let i = 0; i < data.bill_instances.length; i++) {
+        const bi = data.bill_instances[i];
+        if (bi.is_payoff_bill && bi.payoff_source_id) {
+          const newBalance = balances[bi.payoff_source_id];
+          if (newBalance !== undefined) {
+            // Update the bill instance's expected_amount to match the CC balance
+            // Credit card balances are stored as negative in cents, but we want positive expected_amount
+            const expectedAmount = Math.abs(newBalance);
+            data.bill_instances[i] = {
+              ...bi,
+              expected_amount: expectedAmount,
+              updated_at: now
+            };
+            
+            // Also update all occurrences if they exist
+            if (bi.occurrences && bi.occurrences.length > 0) {
+              // For payoff bills, there should be just one occurrence
+              data.bill_instances[i].occurrences = bi.occurrences.map(occ => ({
+                ...occ,
+                expected_amount: expectedAmount,
+                updated_at: now
+              }));
+            }
+            
+            console.log(`[MonthsService] Updated payoff bill ${bi.id} expected_amount to ${expectedAmount} for source ${bi.payoff_source_id}`);
+          }
+        }
+      }
       
       await this.saveMonthlyData(month, data);
       return data;

@@ -1,6 +1,11 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import type { PaymentSource } from '../../stores/payment-sources';
   import { isDebtAccount, formatBalanceForDisplay } from '../../stores/payment-sources';
+  import { apiUrl } from '$lib/api/client';
+  import { success, error as showError } from '../../stores/toast';
+  
+  const dispatch = createEventDispatcher();
   
   interface Tally {
     expected: number;
@@ -41,6 +46,14 @@
   export let tallies: Tallies;
   export let leftoverBreakdown: LeftoverBreakdown;
   export let payoffSummaries: PayoffSummary[] = [];
+  export let month: string = '';
+  export let readOnly: boolean = false;
+  
+  // Inline editing state for balances
+  let editingBalanceId: string | null = null;
+  let editingBalanceValue: string = '';
+  let editingIsDebtAccount: boolean = false;
+  let savingBalance = false;
   
   function formatCurrency(cents: number): string {
     const dollars = Math.abs(cents) / 100;
@@ -82,10 +95,82 @@
     return (source as any).pay_off_monthly ?? false;
   }
   
+  // Start editing a balance (works for both asset and debt accounts)
+  function startEditingBalance(source: PaymentSource) {
+    if (readOnly || !month) return;
+    editingBalanceId = source.id;
+    // For display, get the absolute value in dollars
+    const displayBalance = getDisplayBalance(source);
+    editingBalanceValue = (Math.abs(displayBalance) / 100).toFixed(2);
+    // Store whether we're editing a debt account
+    editingIsDebtAccount = isDebtAccount(source.type);
+  }
+  
+  // Cancel editing
+  function cancelEditingBalance() {
+    editingBalanceId = null;
+    editingBalanceValue = '';
+    editingIsDebtAccount = false;
+  }
+  
+  // Save edited balance
+  async function saveBalance() {
+    if (!editingBalanceId || !month) return;
+    
+    const newAmountDollars = parseFloat(editingBalanceValue);
+    if (isNaN(newAmountDollars) || newAmountDollars < 0) {
+      showError('Please enter a valid amount');
+      return;
+    }
+    
+    savingBalance = true;
+    
+    try {
+      // Convert to cents
+      // For debt accounts (credit cards), store as negative
+      // For asset accounts (bank accounts), store as positive
+      const newBalanceCents = editingIsDebtAccount 
+        ? -Math.round(newAmountDollars * 100)
+        : Math.round(newAmountDollars * 100);
+      
+      // Build updated bank balances object
+      const updatedBalances = { ...bankBalances, [editingBalanceId]: newBalanceCents };
+      
+      const response = await fetch(apiUrl(`/api/months/${month}/bank-balances`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedBalances)
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update balance');
+      }
+      
+      success('Balance updated');
+      cancelEditingBalance();
+      dispatch('refresh');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showError(message);
+    } finally {
+      savingBalance = false;
+    }
+  }
+  
+  // Handle keydown in balance input
+  function handleBalanceKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      saveBalance();
+    } else if (event.key === 'Escape') {
+      cancelEditingBalance();
+    }
+  }
+  
   // Calculate totals
   $: totalAssets = assetAccounts.reduce((sum, ps) => sum + getBalance(ps), 0);
   $: totalDebt = debtAccounts.reduce((sum, ps) => sum + getBalance(ps), 0);
-  $: netWorth = totalAssets - totalDebt;
+  $: netWorth = totalAssets + totalDebt;  // totalDebt is already negative
   
   // Calculate liquid total (sum of all bank balances - for display, uses display balance)
   $: liquidTotal = netWorth;
@@ -109,11 +194,62 @@
       <h3 class="box-title">Bank Accounts & Cash</h3>
       <div class="balance-list">
         {#each assetAccounts as source (source.id)}
+          {@const isEditing = editingBalanceId === source.id}
+          {@const canEdit = !readOnly && month}
           <div class="balance-row">
             <span class="balance-name">{source.name}</span>
-            <span class="balance-value" class:negative={getDisplayBalance(source) < 0}>
-              {formatCurrency(getDisplayBalance(source))}
-            </span>
+            {#if isEditing}
+              <div class="balance-edit">
+                <span class="currency-prefix">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="balance-input"
+                  bind:value={editingBalanceValue}
+                  on:keydown={handleBalanceKeydown}
+                  disabled={savingBalance}
+                />
+                <button 
+                  class="edit-btn save" 
+                  on:click={saveBalance}
+                  disabled={savingBalance}
+                  title="Save"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button 
+                  class="edit-btn cancel" 
+                  on:click={cancelEditingBalance}
+                  disabled={savingBalance}
+                  title="Cancel"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            {:else}
+              <button 
+                class="balance-value credit" 
+                class:editable={canEdit}
+                class:editable-highlight={canEdit}
+                on:click={() => canEdit && startEditingBalance(source)}
+                title={canEdit ? 'Click to edit balance' : ''}
+                disabled={!canEdit}
+              >
+                {formatCurrency(getDisplayBalance(source))}
+                {#if canEdit}
+                  <svg class="edit-icon" width="10" height="10" viewBox="0 0 24 24" fill="none">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                {/if}
+              </button>
+            {/if}
           </div>
         {/each}
       </div>
@@ -138,6 +274,8 @@
         <div class="balance-list">
           {#each debtAccounts as source (source.id)}
             {@const payoff = getPayoffSummary(source.id)}
+            {@const isEditing = editingBalanceId === source.id}
+            {@const canEdit = !readOnly && month}
             <div class="balance-row" class:payoff-mode={isPayOffMonthly(source)}>
               <div class="balance-info">
                 <span class="balance-name">
@@ -152,16 +290,65 @@
                   </span>
                 {/if}
               </div>
-              <span class="balance-value negative">
-                {formatCurrency(getDisplayBalance(source))}
-              </span>
+              {#if isEditing}
+                <div class="balance-edit">
+                  <span class="currency-prefix">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="balance-input"
+                    bind:value={editingBalanceValue}
+                    on:keydown={handleBalanceKeydown}
+                    disabled={savingBalance}
+                  />
+                  <button 
+                    class="edit-btn save" 
+                    on:click={saveBalance}
+                    disabled={savingBalance}
+                    title="Save"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <button 
+                    class="edit-btn cancel" 
+                    on:click={cancelEditingBalance}
+                    disabled={savingBalance}
+                    title="Cancel"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                </div>
+              {:else}
+                <button 
+                  class="balance-value debt" 
+                  class:editable={canEdit}
+                  class:editable-highlight={canEdit}
+                  on:click={() => canEdit && startEditingBalance(source)}
+                  title={canEdit ? 'Click to edit balance' : ''}
+                  disabled={!canEdit}
+                >
+                  {formatCurrency(getDisplayBalance(source))}
+                  {#if canEdit}
+                    <svg class="edit-icon" width="10" height="10" viewBox="0 0 24 24" fill="none">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  {/if}
+                </button>
+              {/if}
             </div>
           {/each}
         </div>
         <div class="section-subtotal">
           <span class="subtotal-label">Total Owed</span>
           <span class="subtotal-value negative">
-            -{formatCurrency(totalDebt)}
+            {formatCurrency(totalDebt)}
           </span>
         </div>
       </div>
@@ -178,9 +365,10 @@
         </span>
       </div>
     </div>
-    
-    <div class="section-divider"></div>
-    
+  </div>
+  
+  <!-- Box 2: Income + Bills -->
+  <div class="sidebar-box">
     <!-- Income -->
     <div class="box-section">
       <h3 class="box-title">Income</h3>
@@ -214,9 +402,9 @@
     </div>
   </div>
   
-  <!-- Unified Leftover - Single Box -->
+  <!-- Box 3: Left Over -->
   <div class="sidebar-box leftover-box" class:invalid={!leftoverBreakdown?.isValid}>
-    <h3 class="box-title">Leftover at End of Month</h3>
+    <h3 class="box-title">Left Over</h3>
     
     {#if leftoverBreakdown?.isValid}
       <div class="leftover-calc">
@@ -234,7 +422,7 @@
         </div>
       </div>
       <div class="leftover-total" class:negative={leftoverBreakdown?.leftover < 0}>
-        <span class="leftover-label">= End of Month</span>
+        <span class="leftover-label">Left Over</span>
         <span class="leftover-value">{formatCurrency(leftoverBreakdown?.leftover ?? 0)}</span>
       </div>
     {:else}
@@ -393,6 +581,144 @@
   
   .balance-row.payoff-mode {
     padding: 6px 0;
+  }
+  
+  /* Editable balance styles */
+  .balance-value.editable {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  
+  /* Yellow/amber highlight for editable values */
+  .balance-value.editable-highlight {
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  
+  .balance-value.editable-highlight:hover {
+    background: rgba(251, 191, 36, 0.25);
+    border-color: rgba(251, 191, 36, 0.6);
+    color: #fbbf24;
+  }
+  
+  .balance-value.editable:hover {
+    background: rgba(36, 200, 219, 0.1);
+    color: #24c8db;
+  }
+  
+  /* Color coding for balance types */
+  .balance-value.credit {
+    color: #4ade80;
+  }
+  
+  .balance-value.debt {
+    color: #f87171;
+  }
+  
+  /* Right-justify text in editable highlight boxes */
+  .balance-value.editable-highlight {
+    text-align: right;
+    justify-content: flex-end;
+    min-width: 80px;
+  }
+  
+  .balance-value.editable .edit-icon {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .balance-value.editable:hover .edit-icon {
+    opacity: 1;
+  }
+  
+  .balance-edit {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .currency-prefix {
+    color: #888;
+    font-size: 0.8rem;
+  }
+  
+  .balance-input {
+    width: 70px;
+    padding: 4px 6px;
+    font-size: 0.8rem;
+    background: #1a1a2e;
+    border: 1px solid #24c8db;
+    border-radius: 4px;
+    color: #e4e4e7;
+    text-align: right;
+  }
+  
+  .balance-input:focus {
+    outline: none;
+    border-color: #24c8db;
+    box-shadow: 0 0 0 2px rgba(36, 200, 219, 0.2);
+  }
+  
+  .balance-input:disabled {
+    opacity: 0.5;
+  }
+  
+  /* Hide spinner buttons */
+  .balance-input::-webkit-outer-spin-button,
+  .balance-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .balance-input[type=number] {
+    -moz-appearance: textfield;
+  }
+  
+  .edit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: transparent;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0;
+  }
+  
+  .edit-btn.save {
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.3);
+  }
+  
+  .edit-btn.save:hover {
+    background: rgba(74, 222, 128, 0.1);
+    border-color: #4ade80;
+  }
+  
+  .edit-btn.cancel {
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+  
+  .edit-btn.cancel:hover {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: #f87171;
+  }
+  
+  .edit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   
   /* Section totals */
