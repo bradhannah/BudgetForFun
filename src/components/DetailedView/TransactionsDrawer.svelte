@@ -1,6 +1,5 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import { payments } from '../../stores/payments';
   import { apiClient } from '../../lib/api/client';
   import { success, error as showError } from '../../stores/toast';
   import type { Payment } from '../../stores/detailed-month';
@@ -13,6 +12,8 @@
   export let transactionList: Payment[] = [];
   export let isClosed: boolean = false;
   export let type: 'bill' | 'income' = 'bill';
+  export let occurrenceId: string | undefined = undefined; // NEW: For occurrence-level payments
+  export let isPayoffBill: boolean = false; // NEW: Disable close actions for payoff bills
   
   const dispatch = createEventDispatcher();
   
@@ -90,25 +91,35 @@
     error = '';
     
     try {
-      // Add the payment
-      const endpoint = type === 'bill' 
-        ? `/api/months/${month}/bills/${instanceId}/payments`
-        : `/api/months/${month}/incomes/${instanceId}/payments`;
+      // Build the endpoint - use occurrence endpoint if occurrenceId provided
+      let endpoint: string;
+      let closeEndpoint: string;
+      
+      if (occurrenceId) {
+        // Occurrence-level endpoints
+        endpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/payments`;
+        closeEndpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/close`;
+      } else {
+        // Instance-level endpoints (legacy/monthly)
+        endpoint = type === 'bill' 
+          ? `/api/months/${month}/bills/${instanceId}/payments`
+          : `/api/months/${month}/incomes/${instanceId}/payments`;
+        closeEndpoint = type === 'bill'
+          ? `/api/months/${month}/bills/${instanceId}/close`
+          : `/api/months/${month}/incomes/${instanceId}/close`;
+      }
       
       await apiClient.post(endpoint, { amount: amountCents, date });
       
-      // Close the instance if requested
+      // Close the instance/occurrence if requested
       if (closeAfter) {
-        const closeEndpoint = type === 'bill'
-          ? `/api/months/${month}/bills/${instanceId}/close`
-          : `/api/months/${month}/incomes/${instanceId}/close`;
         await apiClient.post(closeEndpoint, {});
-        success(`${typeLabel} added and ${type === 'bill' ? 'bill' : 'income'} closed`);
+        success(`${typeLabel} added and closed`);
       } else {
         success(`${typeLabel} added`);
       }
       
-      dispatch('updated');
+      dispatch('updated', { paymentAmount: amountCents });
       
       if (closeAfter) {
         handleClose();
@@ -128,11 +139,19 @@
     error = '';
     
     try {
-      const closeEndpoint = type === 'bill'
-        ? `/api/months/${month}/bills/${instanceId}/close`
-        : `/api/months/${month}/incomes/${instanceId}/close`;
+      // Build the close endpoint - use occurrence endpoint if occurrenceId provided
+      let closeEndpoint: string;
+      
+      if (occurrenceId) {
+        closeEndpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/close`;
+      } else {
+        closeEndpoint = type === 'bill'
+          ? `/api/months/${month}/bills/${instanceId}/close`
+          : `/api/months/${month}/incomes/${instanceId}/close`;
+      }
+      
       await apiClient.post(closeEndpoint, {});
-      success(`${type === 'bill' ? 'Bill' : 'Income'} closed`);
+      success(`${occurrenceId ? 'Occurrence' : (type === 'bill' ? 'Bill' : 'Income')} closed`);
       dispatch('updated');
       handleClose();
     } catch (err) {
@@ -145,12 +164,20 @@
   
   async function deleteTransaction(paymentId: string) {
     try {
-      if (type === 'bill') {
-        await payments.removePayment(month, instanceId, paymentId);
+      // Build the endpoint - use occurrence endpoint if occurrenceId provided
+      let endpoint: string;
+      
+      if (occurrenceId) {
+        // Occurrence-level delete endpoint
+        endpoint = `/api/months/${month}/${type}s/${instanceId}/occurrences/${occurrenceId}/payments/${paymentId}`;
       } else {
-        // @ts-ignore - removeIncomePayment exists but TypeScript inference doesn't pick it up
-        await payments.removeIncomePayment(month, instanceId, paymentId);
+        // Instance-level endpoints (legacy/monthly)
+        endpoint = type === 'bill' 
+          ? `/api/months/${month}/bills/${instanceId}/payments/${paymentId}`
+          : `/api/months/${month}/incomes/${instanceId}/payments/${paymentId}`;
       }
+      
+      await apiClient.deletePath(endpoint);
       success(`${typeLabel} deleted`);
       dispatch('updated');
     } catch (err) {
@@ -273,22 +300,26 @@
               >
                 Add & Keep Open
               </button>
-              <button 
-                class="action-btn primary" 
-                on:click={addTransactionAndClose} 
-                disabled={saving}
-              >
-                Add & Close
-              </button>
+              {#if !isPayoffBill}
+                <button 
+                  class="action-btn primary" 
+                  on:click={addTransactionAndClose} 
+                  disabled={saving}
+                >
+                  Add & Close
+                </button>
+              {/if}
             </div>
             
-            <button 
-              class="close-without-btn" 
-              on:click={closeWithoutAdding} 
-              disabled={saving}
-            >
-              Close Without Adding
-            </button>
+            {#if !isPayoffBill}
+              <button 
+                class="close-without-btn" 
+                on:click={closeWithoutAdding} 
+                disabled={saving}
+              >
+                Close Without Adding
+              </button>
+            {/if}
           </div>
         {:else}
           <div class="closed-notice">

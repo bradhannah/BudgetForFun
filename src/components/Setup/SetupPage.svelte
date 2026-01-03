@@ -3,10 +3,10 @@
   
   // Stores
   import { paymentSourcesStore, loadPaymentSources, deletePaymentSource } from '../../stores/payment-sources';
-  import { billsStore, loadBills, deleteBill, activeBillsWithContribution, totalFixedCosts, calculateMonthlyContribution as calculateBillContribution } from '../../stores/bills';
-  import { incomesStore, loadIncomes, deleteIncome, activeIncomesWithContribution, totalMonthlyIncome, calculateMonthlyContribution as calculateIncomeContribution } from '../../stores/incomes';
+  import { billsStore, loadBills, deleteBill, activeBillsWithContribution, totalFixedCosts, billsByCategory, calculateMonthlyContribution as calculateBillContribution } from '../../stores/bills';
+  import { incomesStore, loadIncomes, deleteIncome, activeIncomesWithContribution, totalMonthlyIncome, incomesByCategory, calculateMonthlyContribution as calculateIncomeContribution } from '../../stores/incomes';
   import { categoriesStore, loadCategories, deleteCategory, billCategories, incomeCategories } from '../../stores/categories';
-  import { variableExpenseTemplatesStore, type VariableExpenseTemplate } from '../../stores/variable-expense-templates';
+  
   import { success, error as showError } from '../../stores/toast';
   
   // Components
@@ -19,8 +19,9 @@
   import IncomeView from './IncomeView.svelte';
   import CategoryForm from './CategoryForm.svelte';
   import CategoryView from './CategoryView.svelte';
-  import VariableExpenseTemplateForm from './VariableExpenseTemplateForm.svelte';
-  import VariableExpenseTemplateView from './VariableExpenseTemplateView.svelte';
+  import BillsListByCategory from './BillsListByCategory.svelte';
+  import IncomesListByCategory from './IncomesListByCategory.svelte';
+  import PaymentSourcesList from './PaymentSourcesList.svelte';
   import LoadDefaultsButton from '../shared/LoadDefaultsButton.svelte';
   import ConfirmDialog from '../shared/ConfirmDialog.svelte';
   import CategoryOrderer from './CategoryOrderer.svelte';
@@ -32,7 +33,7 @@
   import type { Category } from '../../stores/categories';
 
   // Tab state
-  type TabId = 'payment-sources' | 'bills' | 'incomes' | 'categories' | 'expense-templates';
+  type TabId = 'payment-sources' | 'bills' | 'incomes' | 'categories';
   let activeTab: TabId = 'payment-sources';
 
   // Drawer state
@@ -43,12 +44,10 @@
   let viewingBill: Bill | null = null;
   let viewingIncome: Income | null = null;
   let viewingCategory: Category | null = null;
-  let viewingTemplate: VariableExpenseTemplate | null = null;
   let editingPaymentSource: PaymentSource | null = null;
   let editingBill: Bill | null = null;
   let editingIncome: Income | null = null;
   let editingCategory: Category | null = null;
-  let editingTemplate: VariableExpenseTemplate | null = null;
 
   // Delete confirmation state
   let showDeleteConfirm = false;
@@ -59,8 +58,7 @@
     { id: 'payment-sources', label: 'Payment Sources' },
     { id: 'bills', label: 'Bills' },
     { id: 'incomes', label: 'Incomes' },
-    { id: 'categories', label: 'Categories' },
-    { id: 'expense-templates', label: 'Expense Templates' }
+    { id: 'categories', label: 'Categories' }
   ];
 
   // Load all data on mount
@@ -69,8 +67,7 @@
       loadPaymentSources(),
       loadBills(),
       loadIncomes(),
-      loadCategories(),
-      variableExpenseTemplatesStore.load()
+      loadCategories()
     ]);
   });
 
@@ -89,7 +86,6 @@
       case 'bills': return 'Bill';
       case 'incomes': return 'Income';
       case 'categories': return 'Category';
-      case 'expense-templates': return 'Expense Template';
     }
   }
 
@@ -99,7 +95,7 @@
     drawerOpen = true;
   }
 
-  function openViewDrawer(item: PaymentSource | Bill | Income | Category | VariableExpenseTemplate) {
+  function openViewDrawer(item: PaymentSource | Bill | Income | Category) {
     drawerMode = 'view';
     clearAllItems();
     
@@ -117,15 +113,12 @@
       case 'categories':
         viewingCategory = item as Category;
         break;
-      case 'expense-templates':
-        viewingTemplate = item as VariableExpenseTemplate;
-        break;
     }
     
     drawerOpen = true;
   }
 
-  function openEditDrawer(item: PaymentSource | Bill | Income | Category | VariableExpenseTemplate) {
+  function openEditDrawer(item: PaymentSource | Bill | Income | Category) {
     drawerMode = 'edit';
     clearAllItems();
     
@@ -143,9 +136,6 @@
       case 'categories':
         editingCategory = item as Category;
         break;
-      case 'expense-templates':
-        editingTemplate = item as VariableExpenseTemplate;
-        break;
     }
     
     drawerOpen = true;
@@ -157,14 +147,12 @@
     if (viewingBill) editingBill = viewingBill;
     if (viewingIncome) editingIncome = viewingIncome;
     if (viewingCategory) editingCategory = viewingCategory;
-    if (viewingTemplate) editingTemplate = viewingTemplate;
     
     // Clear viewing items
     viewingPaymentSource = null;
     viewingBill = null;
     viewingIncome = null;
     viewingCategory = null;
-    viewingTemplate = null;
     
     drawerMode = 'edit';
   }
@@ -174,12 +162,10 @@
     viewingBill = null;
     viewingIncome = null;
     viewingCategory = null;
-    viewingTemplate = null;
     editingPaymentSource = null;
     editingBill = null;
     editingIncome = null;
     editingCategory = null;
-    editingTemplate = null;
   }
 
   function closeDrawer() {
@@ -209,10 +195,6 @@
         case 'categories':
           await deleteCategory(id);
           success('Category deleted');
-          break;
-        case 'expense-templates':
-          await variableExpenseTemplatesStore.delete(id);
-          success('Expense template deleted');
           break;
       }
       showDeleteConfirm = false;
@@ -290,8 +272,6 @@
               {$incomesStore.incomes.length}
             {:else if activeTab === 'categories'}
               {$categoriesStore.categories.length}
-            {:else if activeTab === 'expense-templates'}
-              {$variableExpenseTemplatesStore.templates.length}
             {/if})
           </span>
         </h2>
@@ -309,25 +289,12 @@
               <p class="hint">Add your first payment source to get started.</p>
             </div>
           {:else}
-            {#each $paymentSourcesStore.paymentSources as ps}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="entity-card clickable" on:click={() => openViewDrawer(ps)}>
-                <div class="card-header">
-                  <span class="card-name">{ps.name}</span>
-                  <span class="card-badge">
-                    {#if ps.type === 'bank_account'}Bank Account{:else if ps.type === 'credit_card'}Credit Card{:else}Cash{/if}
-                  </span>
-                </div>
-                <div class="card-amount" style="color: #24c8db;">
-                  {formatAmount(ps.balance)}
-                </div>
-                <div class="card-actions" on:click|stopPropagation>
-                    <button class="btn-small btn-secondary" on:click={() => openEditDrawer(ps)}>Edit</button>
-                    <button class="btn-small btn-danger" on:click={() => confirmDelete({ id: ps.id, name: ps.name })}>Delete</button>
-                </div>
-              </div>
-            {/each}
+            <PaymentSourcesList
+              paymentSources={$paymentSourcesStore.paymentSources}
+              onView={openViewDrawer}
+              onEdit={openEditDrawer}
+              onDelete={(ps) => confirmDelete({ id: ps.id, name: ps.name })}
+            />
           {/if}
 
         {:else if activeTab === 'bills'}
@@ -337,32 +304,14 @@
               <p class="hint">Add your recurring bills like rent, utilities, subscriptions.</p>
             </div>
           {:else}
-            {#each $activeBillsWithContribution as bill}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="entity-card clickable" on:click={() => openViewDrawer(bill)}>
-                <div class="card-header">
-                  <span class="card-name">{bill.name}</span>
-                  <span class="card-badge">{bill.billing_period.replace('_', '-')}</span>
-                </div>
-                {#if bill.start_date && bill.billing_period !== 'monthly'}
-                  <div class="card-meta">Starts: {bill.start_date}</div>
-                {/if}
-                <div class="card-meta">Paid from: {getPaymentSourceName(bill.payment_source_id)}</div>
-                <div class="card-amount" style="color: #ff6b6b;">
-                  {formatAmount(bill.monthlyContribution)}/mo
-                </div>
-                <div class="card-actions" on:click|stopPropagation>
-                    <button class="btn-small btn-secondary" on:click={() => openEditDrawer(bill)}>Edit</button>
-                    <button class="btn-small btn-danger" on:click={() => confirmDelete({ id: bill.id, name: bill.name })}>Delete</button>
-                </div>
-              </div>
-            {/each}
-            <!-- Total Fixed Costs -->
-            <div class="total-row">
-              <span class="total-label">Total Fixed Costs</span>
-              <span class="total-value" style="color: #ff6b6b;">{formatAmount($totalFixedCosts)}/mo</span>
-            </div>
+            <BillsListByCategory
+              billsByCategory={$billsByCategory}
+              totalFixedCosts={$totalFixedCosts}
+              onView={openViewDrawer}
+              onEdit={openEditDrawer}
+              onDelete={(bill) => confirmDelete({ id: bill.id, name: bill.name })}
+              {getPaymentSourceName}
+            />
           {/if}
 
         {:else if activeTab === 'incomes'}
@@ -372,32 +321,14 @@
               <p class="hint">Add your salary, freelance income, or other recurring income.</p>
             </div>
           {:else}
-            {#each $activeIncomesWithContribution as income}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="entity-card clickable" on:click={() => openViewDrawer(income)}>
-                <div class="card-header">
-                  <span class="card-name">{income.name}</span>
-                  <span class="card-badge">{income.billing_period.replace('_', '-')}</span>
-                </div>
-                {#if income.start_date && income.billing_period !== 'monthly'}
-                  <div class="card-meta">Starts: {income.start_date}</div>
-                {/if}
-                <div class="card-meta">Deposited to: {getPaymentSourceName(income.payment_source_id)}</div>
-                <div class="card-amount" style="color: #22c55e;">
-                  {formatAmount(income.monthlyContribution)}/mo
-                </div>
-                <div class="card-actions" on:click|stopPropagation>
-                    <button class="btn-small btn-secondary" on:click={() => openEditDrawer(income)}>Edit</button>
-                    <button class="btn-small btn-danger" on:click={() => confirmDelete({ id: income.id, name: income.name })}>Delete</button>
-                </div>
-              </div>
-            {/each}
-            <!-- Total Monthly Income -->
-            <div class="total-row">
-              <span class="total-label">Total Monthly Income</span>
-              <span class="total-value" style="color: #22c55e;">{formatAmount($totalMonthlyIncome)}/mo</span>
-            </div>
+            <IncomesListByCategory
+              incomesByCategory={$incomesByCategory}
+              totalMonthlyIncome={$totalMonthlyIncome}
+              onView={openViewDrawer}
+              onEdit={openEditDrawer}
+              onDelete={(income) => confirmDelete({ id: income.id, name: income.name })}
+              {getPaymentSourceName}
+            />
           {/if}
 
         {:else if activeTab === 'categories'}
@@ -405,84 +336,16 @@
           <div class="category-orderers">
             <CategoryOrderer 
               categories={$billCategories} 
-              type="bill" 
+              type="bill"
+              on:edit={(e) => openEditDrawer(e.detail.category)}
             />
             <CategoryOrderer 
               categories={$incomeCategories} 
-              type="income" 
+              type="income"
+              on:edit={(e) => openEditDrawer(e.detail.category)}
             />
           </div>
-          
-          <div class="categories-divider"></div>
-          
-          <!-- Category list for add/edit/delete -->
-          <h3 class="section-subtitle">Manage Categories</h3>
-          {#if $categoriesStore.categories.length === 0}
-            <div class="empty-state">
-              <p>No categories yet.</p>
-              <p class="hint">Add custom categories for your expenses.</p>
-            </div>
-          {:else}
-            {#each $categoriesStore.categories as category}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="entity-card clickable" on:click={() => openViewDrawer(category)}>
-                <div class="card-header">
-                  <span class="card-name">{category.name}</span>
-                  {#if category.is_predefined}
-                    <span class="card-badge predefined">Predefined</span>
-                  {:else}
-                    <span class="card-badge">Custom</span>
-                  {/if}
-                </div>
-                <div class="card-actions" on:click|stopPropagation>
-                  {#if category.is_predefined}
-                    <span class="card-meta">Cannot modify predefined categories</span>
-                  {:else}
-                    <button class="btn-small btn-secondary" on:click={() => openEditDrawer(category)}>Edit</button>
-                    <button class="btn-small btn-danger" on:click={() => confirmDelete({ id: category.id, name: category.name })}>Delete</button>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          {/if}
 
-        {:else if activeTab === 'expense-templates'}
-          {#if $variableExpenseTemplatesStore.templates.length === 0}
-            <div class="empty-state">
-              <p>No expense templates yet.</p>
-              <p class="hint">Add templates for variable expenses like groceries, gas, entertainment.</p>
-            </div>
-          {:else}
-            {#each $variableExpenseTemplatesStore.templates as template}
-              <!-- svelte-ignore a11y_click_events_have_key_events -->
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div class="entity-card clickable" on:click={() => openViewDrawer(template)}>
-                <div class="card-header">
-                  <span class="card-name">{template.name}</span>
-                  <span class="card-badge" class:inactive={!template.is_active}>
-                    {template.frequency.replace('_', ' ')}
-                  </span>
-                </div>
-                {#if template.estimated_amount}
-                  <div class="card-amount" style="color: #ff6b6b;">
-                    ~{formatAmount(template.estimated_amount)}
-                  </div>
-                {/if}
-                <div class="card-meta">
-                  {#if template.is_active}
-                    <span style="color: #22c55e;">Active</span>
-                  {:else}
-                    <span style="color: #888;">Inactive</span>
-                  {/if}
-                </div>
-                <div class="card-actions" on:click|stopPropagation>
-                  <button class="btn-small btn-secondary" on:click={() => openEditDrawer(template)}>Edit</button>
-                  <button class="btn-small btn-danger" on:click={() => confirmDelete({ id: template.id, name: template.name })}>Delete</button>
-                </div>
-              </div>
-            {/each}
-          {/if}
         {/if}
       </div>
     </main>
@@ -499,8 +362,6 @@
         <IncomeView item={viewingIncome} onEdit={switchToEdit} onClose={closeDrawer} />
       {:else if activeTab === 'categories' && viewingCategory}
         <CategoryView item={viewingCategory} onEdit={switchToEdit} onClose={closeDrawer} />
-      {:else if activeTab === 'expense-templates' && viewingTemplate}
-        <VariableExpenseTemplateView item={viewingTemplate} onEdit={switchToEdit} onClose={closeDrawer} />
       {/if}
     {:else}
       {#if activeTab === 'payment-sources'}
@@ -524,12 +385,6 @@
       {:else if activeTab === 'categories'}
         <CategoryForm 
           editingItem={editingCategory} 
-          onSave={handleSave} 
-          onCancel={closeDrawer} 
-        />
-      {:else if activeTab === 'expense-templates'}
-        <VariableExpenseTemplateForm 
-          editingItem={editingTemplate} 
           onSave={handleSave} 
           onCancel={closeDrawer} 
         />
@@ -568,7 +423,7 @@
   .back-link {
     color: #24c8db;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
@@ -578,7 +433,7 @@
 
   .setup-header h1 {
     margin: 0;
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: 600;
   }
 
@@ -608,7 +463,7 @@
     background: none;
     color: #888;
     text-align: left;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -640,7 +495,7 @@
 
   .content-header h2 {
     margin: 0;
-    font-size: 24px;
+    font-size: 1.5rem;
     font-weight: 600;
   }
 
@@ -654,6 +509,7 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
+    max-width: 900px;
   }
 
   .entity-card {
@@ -684,29 +540,41 @@
 
   .card-name {
     font-weight: 600;
-    font-size: 16px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .type-icon {
+    font-size: 1.125rem;
   }
 
   .card-badge {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #24c8db;
     padding: 4px 10px;
     background: rgba(36, 200, 219, 0.1);
     border-radius: 4px;
   }
 
-  .card-badge.predefined {
+  .card-badge.inactive {
     color: #888;
     background: rgba(136, 136, 136, 0.1);
   }
 
+  .card-badge.debt {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+  }
+
   .card-meta {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: #888;
   }
 
   .card-amount {
-    font-size: 20px;
+    font-size: 1.25rem;
     font-weight: bold;
   }
 
@@ -728,7 +596,7 @@
   }
 
   .empty-state .hint {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #666;
   }
 
@@ -738,19 +606,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 24px;
     margin-bottom: 24px;
-  }
-
-  .categories-divider {
-    height: 1px;
-    background: #333355;
-    margin: 24px 0;
-  }
-
-  .section-subtitle {
-    margin: 0 0 16px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #888;
   }
 
   /* Total Row */
@@ -767,12 +622,12 @@
 
   .total-label {
     font-weight: 600;
-    font-size: 16px;
+    font-size: 1rem;
     color: #e4e4e7;
   }
 
   .total-value {
-    font-size: 22px;
+    font-size: 1.375rem;
     font-weight: bold;
   }
 
@@ -782,7 +637,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 
@@ -800,7 +655,7 @@
     border-radius: 4px;
     border: none;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 500;
   }
 

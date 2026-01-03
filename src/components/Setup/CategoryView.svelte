@@ -76,19 +76,19 @@
   }
 
   label {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #888;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
 
   .view-value {
-    font-size: 16px;
+    font-size: 1rem;
     color: #e4e4e7;
   }
 
   .view-value.muted {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #888;
   }
 
@@ -96,7 +96,7 @@
     display: inline-block;
     padding: 4px 10px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .badge.predefined {
@@ -114,7 +114,7 @@
     color: #888;
     padding: 12px;
     border-radius: 6px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-align: center;
   }
 
@@ -132,7 +132,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 

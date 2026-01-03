@@ -147,14 +147,32 @@ export class AdhocServiceImpl implements AdhocService {
     const categoryId = data.category_id || await this.getAdhocBillCategory();
 
     const now = new Date().toISOString();
+    const today = now.split('T')[0]; // YYYY-MM-DD
+    
+    // Ad-hoc bills have a single occurrence
+    const occurrence = {
+      id: crypto.randomUUID(),
+      sequence: 1,
+      expected_date: data.date || today,
+      expected_amount: data.amount,
+      is_closed: !!data.date,
+      closed_date: data.date || undefined,
+      payments: [],
+      is_adhoc: true,
+      created_at: now,
+      updated_at: now
+    };
+    
     const newInstance: BillInstance = {
       id: crypto.randomUUID(),
       bill_id: null, // Always null for ad-hoc
       month,
+      billing_period: 'monthly',  // Ad-hoc items are treated as monthly
       amount: data.amount,
-      expected_amount: 0, // Ad-hoc items have no expected amount
-      actual_amount: data.amount,
-      payments: [],
+      expected_amount: data.amount, // Ad-hoc items use entered amount as expected
+      actual_amount: undefined,     // No actual until payments are made
+      payments: [],                // DEPRECATED
+      occurrences: [occurrence],   // Single occurrence for ad-hoc
       is_default: false,
       is_paid: !!data.date, // Paid if date provided
       is_closed: !!data.date, // Closed if date provided
@@ -310,14 +328,32 @@ export class AdhocServiceImpl implements AdhocService {
     const categoryId = data.category_id || await this.getAdhocIncomeCategory();
 
     const now = new Date().toISOString();
+    const today = now.split('T')[0]; // YYYY-MM-DD
+    
+    // Ad-hoc incomes have a single occurrence
+    const occurrence = {
+      id: crypto.randomUUID(),
+      sequence: 1,
+      expected_date: data.date || today,
+      expected_amount: data.amount,
+      is_closed: !!data.date,
+      closed_date: data.date || undefined,
+      payments: [],
+      is_adhoc: true,
+      created_at: now,
+      updated_at: now
+    };
+    
     const newInstance: IncomeInstance = {
       id: crypto.randomUUID(),
       income_id: null, // Always null for ad-hoc
       month,
+      billing_period: 'monthly',  // Ad-hoc items are treated as monthly
       amount: data.amount,
       expected_amount: 0, // Ad-hoc items have no expected amount
       actual_amount: data.amount,
-      payments: [],
+      payments: [],                // DEPRECATED
+      occurrences: [occurrence],   // Single occurrence for ad-hoc
       is_default: false,
       is_paid: !!data.date, // Received if date provided
       is_closed: !!data.date, // Closed if date provided

@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '$lib/api/client';
+import { categories, type Category } from './categories';
 
 export interface Bill {
   id: string;
@@ -148,4 +149,46 @@ export const activeBillsWithContribution = derived(billsWithContribution, ($bill
 // Derived store for total fixed costs (sum of all active bills' monthly contributions)
 export const totalFixedCosts = derived(activeBillsWithContribution, ($bills) =>
   $bills.reduce((sum, bill) => sum + bill.monthlyContribution, 0)
+);
+
+// Type for bills grouped by category
+export interface BillCategoryGroup {
+  category: Category | null;
+  bills: BillWithContribution[];
+  subtotal: number;
+}
+
+// Derived store for bills grouped by category
+export const billsByCategory = derived(
+  [activeBillsWithContribution, categories],
+  ([$bills, $categories]): BillCategoryGroup[] => {
+    // Get bill categories sorted by sort_order
+    const billCats = $categories
+      .filter(c => c.type === 'bill')
+      .sort((a, b) => a.sort_order - b.sort_order);
+    
+    const grouped: BillCategoryGroup[] = [];
+    
+    // Uncategorized first
+    const uncategorized = $bills.filter(b => !b.category_id);
+    if (uncategorized.length > 0 || true) { // Always show uncategorized section
+      grouped.push({ 
+        category: null, 
+        bills: uncategorized,
+        subtotal: uncategorized.reduce((sum, b) => sum + b.monthlyContribution, 0)
+      });
+    }
+    
+    // Then each category in sort_order
+    for (const cat of billCats) {
+      const catBills = $bills.filter(b => b.category_id === cat.id);
+      grouped.push({ 
+        category: cat, 
+        bills: catBills,
+        subtotal: catBills.reduce((sum, b) => sum + b.monthlyContribution, 0)
+      });
+    }
+    
+    return grouped;
+  }
 );

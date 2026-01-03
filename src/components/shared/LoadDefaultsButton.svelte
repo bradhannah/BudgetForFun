@@ -78,7 +78,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     transition: background 0.15s ease;
   }
@@ -98,7 +98,7 @@
   }
 
   .message {
-    font-size: 12px;
+    font-size: 0.75rem;
     padding: 4px 8px;
     border-radius: 4px;
   }

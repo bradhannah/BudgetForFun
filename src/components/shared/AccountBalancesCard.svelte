@@ -3,6 +3,10 @@
    * AccountBalancesCard - Shows payment sources with editable balances
    * Designed for placement at top of Dashboard and Details views
    * 
+   * Separates accounts into:
+   * - Assets: Bank Accounts & Cash (positive balances = money you have)
+   * - Debt: Credit Cards & Lines of Credit (displayed as negative = money you owe)
+   * 
    * @prop paymentSources - List of all payment sources
    * @prop bankBalances - Per-month balance overrides (from monthly data)
    * @prop month - Current month (YYYY-MM)
@@ -11,6 +15,7 @@
    */
   import { createEventDispatcher } from 'svelte';
   import type { PaymentSource } from '../../stores/payment-sources';
+  import { isDebtAccount, formatBalanceForDisplay } from '../../stores/payment-sources';
   
   export let paymentSources: PaymentSource[] = [];
   export let bankBalances: Record<string, number> = {};
@@ -35,25 +40,28 @@
   // Calculate totals from effective balances
   $: effectiveBalances = paymentSources.map(ps => ({
     ...ps,
-    effectiveBalance: getEffectiveBalance(ps)
+    effectiveBalance: getEffectiveBalance(ps),
+    displayBalance: formatBalanceForDisplay(getEffectiveBalance(ps), ps.type)
   }));
   
-  // Separate by type
-  $: bankAccounts = effectiveBalances.filter(ps => ps.type === 'bank_account' || ps.type === 'cash');
-  $: creditCards = effectiveBalances.filter(ps => ps.type === 'credit_card');
+  // Separate by type - Assets vs Debt
+  $: assetAccounts = effectiveBalances.filter(ps => !isDebtAccount(ps.type));
+  $: debtAccounts = effectiveBalances.filter(ps => isDebtAccount(ps.type));
   
-  $: totalCash = bankAccounts.reduce((sum, ps) => sum + ps.effectiveBalance, 0);
-  $: totalCreditDebt = creditCards.reduce((sum, ps) => sum + ps.effectiveBalance, 0);
-  $: netWorth = totalCash - totalCreditDebt;
+  // Totals - assets are positive, debt is already stored as positive (owed)
+  $: totalAssets = assetAccounts.reduce((sum, ps) => sum + ps.effectiveBalance, 0);
+  $: totalDebt = debtAccounts.reduce((sum, ps) => sum + ps.effectiveBalance, 0);
+  $: netWorth = totalAssets - totalDebt;
   
-  // Format amount in cents to dollars
+  // Format amount in cents to dollars (handles negative values)
   function formatCurrency(cents: number): string {
-    const dollars = cents / 100;
-    return new Intl.NumberFormat('en-US', {
+    const dollars = Math.abs(cents) / 100;
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
     }).format(dollars);
+    return cents < 0 ? '-' + formatted : formatted;
   }
   
   // Parse currency input to cents
@@ -100,6 +108,8 @@
         return '🏦';
       case 'credit_card':
         return '💳';
+      case 'line_of_credit':
+        return '🏛️';
       case 'cash':
         return '💵';
       default:
@@ -116,10 +126,6 @@
 <div class="account-balances-card">
   <div class="card-header">
     <h3 class="card-title">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-        <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H19C20.1046 3 21 3.89543 21 5V19C21 20.1046 20.1046 21 19 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M12 8V16M8 12H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
       Account Balances
     </h3>
     {#if month}
@@ -132,83 +138,95 @@
   {:else if paymentSources.length === 0}
     <p class="empty-message">No accounts set up. <a href="/setup">Add accounts in Setup</a></p>
   {:else}
-    <!-- Accounts Grid - horizontal layout -->
-    <div class="accounts-grid">
-      <!-- Bank Accounts -->
-      {#each bankAccounts as source (source.id)}
-        <div class="account-item" class:customized={isCustomized(source)}>
-          <div class="account-info">
-            <span class="account-icon">{getTypeIcon(source.type)}</span>
-            <span class="account-name">{source.name}</span>
-          </div>
-          
-          {#if editingId === source.id}
-            <div class="edit-container">
-              <span class="currency-prefix">$</span>
-              <input
-                type="text"
-                bind:value={editValue}
-                on:keydown={(e) => handleKeydown(e, source)}
-                on:blur={() => saveEdit(source)}
-                class="balance-input"
-                autofocus
-              />
+    <!-- Assets Section - Bank Accounts & Cash -->
+    {#if assetAccounts.length > 0}
+      <div class="section-header">
+        <span class="section-title">Bank Accounts & Cash</span>
+      </div>
+      <div class="accounts-grid">
+        {#each assetAccounts as source (source.id)}
+          <div class="account-item" class:customized={isCustomized(source)}>
+            <div class="account-info">
+              <span class="account-icon">{getTypeIcon(source.type)}</span>
+              <span class="account-name">{source.name}</span>
             </div>
-          {:else}
-            <button 
-              class="balance-button positive"
-              on:click={() => startEdit(source)}
-              title="Click to edit"
-            >
-              {formatCurrency(source.effectiveBalance)}
-            </button>
-          {/if}
-        </div>
-      {/each}
-      
-      <!-- Credit Cards -->
-      {#each creditCards as source (source.id)}
-        <div class="account-item" class:customized={isCustomized(source)}>
-          <div class="account-info">
-            <span class="account-icon">{getTypeIcon(source.type)}</span>
-            <span class="account-name">{source.name}</span>
+            
+            {#if editingId === source.id}
+              <div class="edit-container">
+                <span class="currency-prefix">$</span>
+                <input
+                  type="text"
+                  bind:value={editValue}
+                  on:keydown={(e) => handleKeydown(e, source)}
+                  on:blur={() => saveEdit(source)}
+                  class="balance-input"
+                  autofocus
+                />
+              </div>
+            {:else}
+              <button 
+                class="balance-button positive"
+                on:click={() => startEdit(source)}
+                title="Click to edit"
+              >
+                {formatCurrency(source.effectiveBalance)}
+              </button>
+            {/if}
           </div>
-          
-          {#if editingId === source.id}
-            <div class="edit-container">
-              <span class="currency-prefix">$</span>
-              <input
-                type="text"
-                bind:value={editValue}
-                on:keydown={(e) => handleKeydown(e, source)}
-                on:blur={() => saveEdit(source)}
-                class="balance-input"
-                autofocus
-              />
+        {/each}
+      </div>
+    {/if}
+    
+    <!-- Debt Section - Credit Cards & Lines of Credit -->
+    {#if debtAccounts.length > 0}
+      <div class="section-header">
+        <span class="section-title">Credit Cards & Lines of Credit</span>
+        <span class="section-subtitle">Balance Owed</span>
+      </div>
+      <div class="accounts-grid">
+        {#each debtAccounts as source (source.id)}
+          <div class="account-item debt" class:customized={isCustomized(source)}>
+            <div class="account-info">
+              <span class="account-icon">{getTypeIcon(source.type)}</span>
+              <span class="account-name">{source.name}</span>
             </div>
-          {:else}
-            <button 
-              class="balance-button negative"
-              on:click={() => startEdit(source)}
-              title="Click to edit"
-            >
-              {formatCurrency(source.effectiveBalance)}
-            </button>
-          {/if}
-        </div>
-      {/each}
-    </div>
+            
+            {#if editingId === source.id}
+              <div class="edit-container">
+                <span class="currency-prefix">$</span>
+                <input
+                  type="text"
+                  bind:value={editValue}
+                  on:keydown={(e) => handleKeydown(e, source)}
+                  on:blur={() => saveEdit(source)}
+                  class="balance-input"
+                  autofocus
+                />
+              </div>
+            {:else}
+              <button 
+                class="balance-button negative"
+                on:click={() => startEdit(source)}
+                title="Click to edit - displayed as negative (amount owed)"
+              >
+                {formatCurrency(source.displayBalance)}
+              </button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
     
     <!-- Summary Totals - horizontal -->
     <div class="totals-row">
       <div class="total-item">
-        <span class="total-label">Cash & Bank</span>
-        <span class="total-value positive">{formatCurrency(totalCash)}</span>
+        <span class="total-label">Total Assets</span>
+        <span class="total-value positive">{formatCurrency(totalAssets)}</span>
       </div>
       <div class="total-divider"></div>
       <div class="total-item">
-        <span class="total-label">Credit Debt</span>
-        <span class="total-value negative">-{formatCurrency(totalCreditDebt)}</span>
+        <span class="total-label">Total Debt</span>
+        <span class="total-value negative">-{formatCurrency(totalDebt)}</span>
       </div>
       <div class="total-divider"></div>
       <div class="total-item">
@@ -243,11 +261,6 @@
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
-  }
-  
-  .card-title svg {
-    color: #24c8db;
   }
   
   .month-label {
@@ -282,6 +295,33 @@
     text-decoration: underline;
   }
   
+  /* Section headers */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    margin-top: 12px;
+  }
+  
+  .section-header:first-of-type {
+    margin-top: 0;
+  }
+  
+  .section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .section-subtitle {
+    font-size: 0.65rem;
+    color: #666;
+    font-style: italic;
+  }
+  
   /* Accounts grid - horizontal layout */
   .accounts-grid {
     display: flex;
@@ -307,6 +347,10 @@
   .account-item.customized {
     border-color: rgba(36, 200, 219, 0.3);
     background: rgba(36, 200, 219, 0.05);
+  }
+  
+  .account-item.debt {
+    border-color: rgba(248, 113, 113, 0.2);
   }
   
   .account-info {

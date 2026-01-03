@@ -8,13 +8,19 @@
    */
   import { createIncome, updateIncome } from '../../stores/incomes';
   import { paymentSourcesStore } from '../../stores/payment-sources';
-  import { incomeCategories } from '../../stores/categories';
+  import { incomeCategories, loadCategories } from '../../stores/categories';
   import { success, error as showError } from '../../stores/toast';
   import type { Income, IncomeData } from '../../stores/incomes';
+  import { onMount } from 'svelte';
 
   export let editingItem: Income | null = null;
   export let onSave: () => void = () => {};
   export let onCancel: () => void = () => {};
+
+  // Load categories on mount
+  onMount(() => {
+    loadCategories();
+  });
 
   // Form state - amount is stored in dollars for user input
   let name = editingItem?.name || '';
@@ -331,7 +337,7 @@
 
   label {
     font-weight: 500;
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #e4e4e7;
   }
 
@@ -341,7 +347,7 @@
     border: 1px solid #333355;
     background: #0f0f0f;
     color: #fff;
-    font-size: 15px;
+    font-size: 0.9375rem;
     height: 46px;
     box-sizing: border-box;
   }
@@ -366,7 +372,7 @@
     position: absolute;
     left: 12px;
     color: #888;
-    font-size: 15px;
+    font-size: 0.9375rem;
     pointer-events: none;
   }
 
@@ -376,7 +382,7 @@
   }
 
   .help-text {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #24c8db;
     margin-top: 4px;
   }
@@ -393,7 +399,7 @@
     gap: 8px;
     cursor: pointer;
     font-weight: normal;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .radio-label input[type="radio"] {
@@ -414,7 +420,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 

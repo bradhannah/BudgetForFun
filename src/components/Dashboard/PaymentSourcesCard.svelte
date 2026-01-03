@@ -2,6 +2,10 @@
   /**
    * PaymentSourcesCard - Shows payment sources with editable balances
    * 
+   * Separates accounts into:
+   * - Assets: Bank Accounts & Cash (positive balances = money you have)
+   * - Debt: Credit Cards & Lines of Credit (displayed as negative = money you owe)
+   * 
    * @prop paymentSources - List of all payment sources
    * @prop bankBalances - Per-month balance overrides (from monthly data)
    * @prop month - Current month (YYYY-MM)
@@ -10,6 +14,7 @@
    */
   import { createEventDispatcher } from 'svelte';
   import type { PaymentSource } from '../../stores/payment-sources';
+  import { isDebtAccount, formatBalanceForDisplay } from '../../stores/payment-sources';
   
   export let paymentSources: PaymentSource[] = [];
   export let bankBalances: Record<string, number> = {};
@@ -31,30 +36,30 @@
     return source.balance;
   }
   
-  // Calculate totals from effective balances
+  // Calculate totals from effective balances with display balance for debt accounts
   $: effectiveBalances = paymentSources.map(ps => ({
     ...ps,
-    effectiveBalance: getEffectiveBalance(ps)
+    effectiveBalance: getEffectiveBalance(ps),
+    displayBalance: formatBalanceForDisplay(getEffectiveBalance(ps), ps.type)
   }));
   
-  $: totalCash = effectiveBalances
-    .filter(ps => ps.type === 'bank_account' || ps.type === 'cash')
-    .reduce((sum, ps) => sum + ps.effectiveBalance, 0);
-    
-  $: totalCreditDebt = effectiveBalances
-    .filter(ps => ps.type === 'credit_card')
-    .reduce((sum, ps) => sum + ps.effectiveBalance, 0);
-    
-  $: netWorth = totalCash - totalCreditDebt;
+  // Separate by type - Assets vs Debt
+  $: assetAccounts = effectiveBalances.filter(ps => !isDebtAccount(ps.type));
+  $: debtAccounts = effectiveBalances.filter(ps => isDebtAccount(ps.type));
   
-  // Format amount in cents to dollars
+  $: totalAssets = assetAccounts.reduce((sum, ps) => sum + ps.effectiveBalance, 0);
+  $: totalDebt = debtAccounts.reduce((sum, ps) => sum + ps.effectiveBalance, 0);
+  $: netWorth = totalAssets - totalDebt;
+  
+  // Format amount in cents to dollars (handles negative values)
   function formatCurrency(cents: number): string {
-    const dollars = cents / 100;
-    return new Intl.NumberFormat('en-US', {
+    const dollars = Math.abs(cents) / 100;
+    const formatted = new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
     }).format(dollars);
+    return cents < 0 ? '-' + formatted : formatted;
   }
   
   // Parse currency input to cents
@@ -102,6 +107,8 @@
         return '🏦';
       case 'credit_card':
         return '💳';
+      case 'line_of_credit':
+        return '🏛️';
       case 'cash':
         return '💵';
       default:
@@ -133,12 +140,12 @@
         </svg>
       </div>
       <div class="item-content">
-        <span class="item-label">Cash & Bank</span>
+        <span class="item-label">Total Assets</span>
         <span class="item-value">
           {#if loading}
             ...
           {:else}
-            {formatCurrency(totalCash)}
+            {formatCurrency(totalAssets)}
           {/if}
         </span>
       </div>
@@ -152,12 +159,12 @@
         </svg>
       </div>
       <div class="item-content">
-        <span class="item-label">Credit Debt</span>
+        <span class="item-label">Total Debt</span>
         <span class="item-value">
           {#if loading}
             ...
           {:else}
-            {formatCurrency(totalCreditDebt)}
+            -{formatCurrency(totalDebt)}
           {/if}
         </span>
       </div>
@@ -185,47 +192,93 @@
   <!-- Individual Payment Sources -->
   {#if paymentSources.length > 0}
     <div class="sources-list">
-      <div class="list-header">
-        <span>Account</span>
-        <span>Balance</span>
-      </div>
-      
-      {#each paymentSources as source (source.id)}
-        <div class="source-row" class:customized={isCustomized(source)}>
-          <div class="source-info">
-            <span class="source-icon">{getTypeIcon(source.type)}</span>
-            <span class="source-name">{source.name}</span>
-            {#if isCustomized(source)}
-              <span class="customized-badge" title="Balance set for this month">*</span>
-            {/if}
-          </div>
-          
-          <div class="source-balance">
-            {#if editingId === source.id}
-              <div class="edit-container">
-                <span class="currency-prefix">$</span>
-                <input
-                  type="text"
-                  bind:value={editValue}
-                  on:keydown={(e) => handleKeydown(e, source)}
-                  on:blur={() => saveEdit(source)}
-                  class="balance-input"
-                  autofocus
-                />
-              </div>
-            {:else}
-              <button 
-                class="balance-button"
-                class:debt={source.type === 'credit_card'}
-                on:click={() => startEdit(source)}
-                title="Click to edit balance for this month"
-              >
-                {formatCurrency(getEffectiveBalance(source))}
-              </button>
-            {/if}
-          </div>
+      <!-- Asset Accounts -->
+      {#if assetAccounts.length > 0}
+        <div class="list-header">
+          <span>Bank Accounts & Cash</span>
+          <span>Balance</span>
         </div>
-      {/each}
+        
+        {#each assetAccounts as source (source.id)}
+          <div class="source-row" class:customized={isCustomized(source)}>
+            <div class="source-info">
+              <span class="source-icon">{getTypeIcon(source.type)}</span>
+              <span class="source-name">{source.name}</span>
+              {#if isCustomized(source)}
+                <span class="customized-badge" title="Balance set for this month">*</span>
+              {/if}
+            </div>
+            
+            <div class="source-balance">
+              {#if editingId === source.id}
+                <div class="edit-container">
+                  <span class="currency-prefix">$</span>
+                  <input
+                    type="text"
+                    bind:value={editValue}
+                    on:keydown={(e) => handleKeydown(e, source)}
+                    on:blur={() => saveEdit(source)}
+                    class="balance-input"
+                    autofocus
+                  />
+                </div>
+              {:else}
+                <button 
+                  class="balance-button"
+                  on:click={() => startEdit(source)}
+                  title="Click to edit balance for this month"
+                >
+                  {formatCurrency(source.effectiveBalance)}
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      {/if}
+      
+      <!-- Debt Accounts -->
+      {#if debtAccounts.length > 0}
+        <div class="list-header debt-header">
+          <span>Credit Cards & Lines of Credit</span>
+          <span>Balance Owed</span>
+        </div>
+        
+        {#each debtAccounts as source (source.id)}
+          <div class="source-row debt-row" class:customized={isCustomized(source)}>
+            <div class="source-info">
+              <span class="source-icon">{getTypeIcon(source.type)}</span>
+              <span class="source-name">{source.name}</span>
+              {#if isCustomized(source)}
+                <span class="customized-badge" title="Balance set for this month">*</span>
+              {/if}
+            </div>
+            
+            <div class="source-balance">
+              {#if editingId === source.id}
+                <div class="edit-container">
+                  <span class="currency-prefix">$</span>
+                  <input
+                    type="text"
+                    bind:value={editValue}
+                    on:keydown={(e) => handleKeydown(e, source)}
+                    on:blur={() => saveEdit(source)}
+                    class="balance-input"
+                    autofocus
+                  />
+                </div>
+              {:else}
+                <button 
+                  class="balance-button debt"
+                  on:click={() => startEdit(source)}
+                  title="Click to edit - displayed as negative (amount owed)"
+                >
+                  {formatCurrency(source.displayBalance)}
+                </button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      {/if}
     </div>
   {:else if !loading}
     <p class="empty-message">No payment sources set up yet. Add them in Setup.</p>
@@ -348,6 +401,16 @@
     color: #666;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+  }
+  
+  .list-header.debt-header {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #333355;
+  }
+  
+  .source-row.debt-row {
+    border-left: 2px solid rgba(248, 113, 113, 0.3);
   }
   
   .source-row {

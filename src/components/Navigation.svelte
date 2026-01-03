@@ -6,6 +6,15 @@
   import { addToast } from '../stores/toast';
   import { apiClient } from '../lib/api/client';
   import { currentMonth, goToCurrentMonth, getCurrentMonth } from '../stores/ui';
+  import { 
+    isTauri, 
+    zoomLevel, 
+    zoomIn, 
+    zoomOut, 
+    resetZoom, 
+    getZoomPercentage,
+    ZOOM_CONFIG 
+  } from '../stores/settings';
   
   $: currentPath = $page.url.pathname;
   
@@ -13,6 +22,16 @@
   $: isDetailsActive = currentPath.startsWith('/month/');
   // Check if we're on the manage page
   $: isManageActive = currentPath.startsWith('/manage');
+  // Check if we're on the settings page
+  $: isSettingsActive = currentPath.startsWith('/settings');
+  
+  // Check if in Tauri environment (for zoom controls)
+  $: inTauri = isTauri();
+  
+  // Current zoom percentage display
+  $: zoomPercentage = getZoomPercentage($zoomLevel);
+  $: canZoomIn = $zoomLevel < ZOOM_CONFIG.max;
+  $: canZoomOut = $zoomLevel > ZOOM_CONFIG.min;
   
   let backupLoading = false;
   let fileInput: HTMLInputElement | null = null;
@@ -184,6 +203,12 @@
         <span>Details</span>
       </a>
     </li>
+  </ul>
+  
+  <!-- Separator and secondary nav items -->
+  <div class="nav-separator"></div>
+  
+  <ul class="nav-list bottom-nav">
     <li>
       <a 
         href="/manage" 
@@ -202,12 +227,6 @@
         <span>Manage Months</span>
       </a>
     </li>
-  </ul>
-  
-  <!-- Separator and Setup at bottom of main nav area -->
-  <div class="nav-separator"></div>
-  
-  <ul class="nav-list bottom-nav">
     <li>
       <a 
         href="/setup" 
@@ -218,7 +237,7 @@
           <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2"/>
         </svg>
-        <span>Setup</span>
+        <span>Budget Config</span>
       </a>
     </li>
   </ul>
@@ -232,8 +251,43 @@
     style="display: none;"
   />
   
-  <!-- Footer with Undo and Backup buttons -->
+  <!-- Footer with Zoom, Undo and Backup buttons -->
   <div class="sidebar-footer">
+    <!-- Zoom Control (Tauri only) -->
+    {#if inTauri}
+      <div class="zoom-control">
+        <button 
+          class="zoom-button"
+          on:click={() => zoomOut()}
+          disabled={!canZoomOut}
+          title="Zoom out (Ctrl+-)"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button 
+          class="zoom-percentage"
+          on:click={() => resetZoom()}
+          title="Reset to 100% (Ctrl+0)"
+        >
+          {zoomPercentage}
+        </button>
+        <button 
+          class="zoom-button"
+          on:click={() => zoomIn()}
+          disabled={!canZoomIn}
+          title="Zoom in (Ctrl++)"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5V19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="footer-separator"></div>
+    {/if}
+    
     <button 
       class="undo-button"
       on:click={handleUndo}
@@ -282,6 +336,20 @@
     {#if backupLoading}
       <div class="backup-loading">Processing...</div>
     {/if}
+    
+    <!-- Settings link in footer -->
+    <div class="footer-separator"></div>
+    <a 
+      href="/settings" 
+      class="settings-footer-link"
+      class:active={isSettingsActive}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Settings</span>
+    </a>
   </div>
 </nav>
 
@@ -394,11 +462,71 @@
     flex-shrink: 0;
   }
   
-  /* Footer with undo and backup */
+  /* Footer with zoom, undo and backup */
   .sidebar-footer {
     margin-top: auto;
     padding: 12px;
     border-top: 1px solid #333355;
+  }
+  
+  /* Zoom control */
+  .zoom-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  
+  .zoom-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid #333355;
+    border-radius: 6px;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .zoom-button:hover:not(:disabled) {
+    background: rgba(36, 200, 219, 0.1);
+    border-color: #24c8db;
+    color: #e4e4e7;
+  }
+  
+  .zoom-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  .zoom-percentage {
+    min-width: 50px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: #888;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  
+  .zoom-percentage:hover {
+    background: rgba(36, 200, 219, 0.1);
+    color: #24c8db;
+  }
+  
+  .footer-separator {
+    border-top: 1px solid #333355;
+    margin: 0 0 8px 0;
   }
   
   .undo-button {
@@ -483,5 +611,34 @@
     color: #24c8db;
     font-size: 0.75rem;
     margin-top: 8px;
+  }
+  
+  /* Settings link in footer */
+  .settings-footer-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: #666;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    margin-top: 4px;
+  }
+  
+  .settings-footer-link:hover {
+    background: rgba(36, 200, 219, 0.1);
+    color: #888;
+  }
+  
+  .settings-footer-link.active {
+    background: rgba(36, 200, 219, 0.15);
+    color: #24c8db;
+  }
+  
+  .settings-footer-link svg {
+    flex-shrink: 0;
   }
 </style>

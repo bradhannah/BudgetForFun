@@ -8,8 +8,10 @@
    */
   import { createBill, updateBill } from '../../stores/bills';
   import { paymentSourcesStore } from '../../stores/payment-sources';
+  import { billCategories, loadCategories } from '../../stores/categories';
   import { success, error as showError } from '../../stores/toast';
   import type { Bill, BillData } from '../../stores/bills';
+  import { onMount } from 'svelte';
 
   export let editingItem: Bill | null = null;
   export let onSave: () => void = () => {};
@@ -21,6 +23,7 @@
   let billing_period: 'monthly' | 'bi_weekly' | 'weekly' | 'semi_annually' = editingItem?.billing_period || 'monthly';
   let start_date = editingItem?.start_date || '';
   let payment_source_id = editingItem?.payment_source_id || '';
+  let category_id = editingItem?.category_id || '';
   
   // Monthly recurrence options
   type MonthlyType = 'day_of_month' | 'nth_weekday';
@@ -35,6 +38,11 @@
   let error = '';
   let saving = false;
 
+  // Load categories on mount
+  onMount(() => {
+    loadCategories();
+  });
+
   // Weekday names for dropdown
   const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const WEEK_ORDINALS = ['1st', '2nd', '3rd', '4th', '5th/Last'];
@@ -46,6 +54,7 @@
     billing_period = editingItem.billing_period;
     start_date = editingItem.start_date || '';
     payment_source_id = editingItem.payment_source_id;
+    category_id = editingItem.category_id || '';
     monthly_type = editingItem.recurrence_week !== undefined ? 'nth_weekday' : 'day_of_month';
     day_of_month = editingItem.day_of_month || 1;
     recurrence_week = editingItem.recurrence_week || 1;
@@ -97,6 +106,11 @@
         billing_period,
         payment_source_id
       };
+
+      // Add category_id if selected
+      if (category_id) {
+        billData.category_id = category_id;
+      }
 
       // Add appropriate fields based on billing period
       if (billing_period !== 'monthly' && start_date) {
@@ -266,6 +280,17 @@
   </div>
 
   <div class="form-group">
+    <label for="bill-category">Category (Optional)</label>
+    <select id="bill-category" bind:value={category_id} disabled={saving || !hasPaymentSources}>
+      <option value="">-- No category --</option>
+      {#each $billCategories as cat}
+        <option value={cat.id}>{cat.name}</option>
+      {/each}
+    </select>
+    <div class="help-text">Categories help organize bills in the monthly view</div>
+  </div>
+
+  <div class="form-group">
     <label for="bill-due-day">Due Day (Optional)</label>
     <select id="bill-due-day" bind:value={due_day} disabled={saving || !hasPaymentSources}>
       <option value="">-- No due date --</option>
@@ -316,7 +341,7 @@
 
   label {
     font-weight: 500;
-    font-size: 14px;
+    font-size: 0.875rem;
     color: #e4e4e7;
   }
 
@@ -326,7 +351,7 @@
     border: 1px solid #333355;
     background: #0f0f0f;
     color: #fff;
-    font-size: 15px;
+    font-size: 0.9375rem;
     height: 46px;
     box-sizing: border-box;
   }
@@ -351,7 +376,7 @@
     position: absolute;
     left: 12px;
     color: #888;
-    font-size: 15px;
+    font-size: 0.9375rem;
     pointer-events: none;
   }
 
@@ -361,7 +386,7 @@
   }
 
   .help-text {
-    font-size: 12px;
+    font-size: 0.75rem;
     color: #24c8db;
     margin-top: 4px;
   }
@@ -378,7 +403,7 @@
     gap: 8px;
     cursor: pointer;
     font-weight: normal;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
 
   .radio-label input[type="radio"] {
@@ -399,7 +424,7 @@
     border-radius: 6px;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 500;
   }
 

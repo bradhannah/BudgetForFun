@@ -8,21 +8,45 @@ export interface Payment {
   amount: number;
   date: string;
   notes?: string;
+  payment_source_id?: string;
+  created_at?: string;
 }
+
+// Occurrence - individual payment instance within a billing period (for bi-weekly/weekly)
+export interface Occurrence {
+  id: string;
+  sequence: number;           // 1, 2, 3... for ordering within the month
+  expected_date: string;      // YYYY-MM-DD - when this occurrence is expected
+  expected_amount: number;    // Cents - can be edited independently per occurrence
+  is_closed: boolean;         // Close/Open status for this occurrence
+  closed_date?: string;       // When closed (YYYY-MM-DD)
+  payments: Payment[];        // Payments toward this specific occurrence
+  is_adhoc: boolean;          // True if manually added by user
+  created_at: string;
+  updated_at: string;
+}
+
+export type BillingPeriod = 'monthly' | 'bi_weekly' | 'weekly' | 'semi_annually';
 
 export interface BillInstanceDetailed {
   id: string;
   bill_id: string | null;
   name: string;
+  billing_period: BillingPeriod; // NEW: billing period type
   expected_amount: number;
   actual_amount: number | null;
-  payments: Payment[];
+  payments: Payment[];          // DEPRECATED: use occurrences
+  occurrences: Occurrence[];    // NEW: Individual occurrences for this instance
+  occurrence_count: number;     // NEW: How many occurrences in this month
+  is_extra_occurrence_month: boolean; // NEW: True if more occurrences than usual
   total_paid: number;
   remaining: number;
   is_paid: boolean;
   is_closed: boolean;
   is_adhoc: boolean;
-  due_date: string | null;
+  is_payoff_bill: boolean;      // True if auto-generated from pay_off_monthly payment source
+  payoff_source_id?: string;    // Reference to the payment source this payoff bill is for
+  due_date: string | null;      // DEPRECATED: use occurrence expected_date
   closed_date: string | null;
   is_overdue: boolean;
   days_overdue: number | null;
@@ -37,15 +61,19 @@ export interface IncomeInstanceDetailed {
   id: string;
   income_id: string | null;
   name: string;
+  billing_period: BillingPeriod; // NEW: billing period type
   expected_amount: number;
   actual_amount: number | null;
-  payments: Payment[];
+  payments: Payment[];          // DEPRECATED: use occurrences
+  occurrences: Occurrence[];    // NEW: Individual occurrences for this instance
+  occurrence_count: number;     // NEW: How many occurrences in this month
+  is_extra_occurrence_month: boolean; // NEW: True if more occurrences than usual (3-paycheck month!)
   total_received: number;
   remaining: number;
   is_paid: boolean;
   is_closed: boolean;
   is_adhoc: boolean;
-  due_date: string | null;
+  due_date: string | null;      // DEPRECATED: use occurrence expected_date
   closed_date: string | null;
   is_overdue: boolean;
   payment_source: {
@@ -61,6 +89,7 @@ export interface CategorySection {
     name: string;
     color: string;
     sort_order: number;
+    type?: 'bill' | 'income' | 'variable';
   };
   items: BillInstanceDetailed[] | IncomeInstanceDetailed[];
   subtotal: {
@@ -76,14 +105,22 @@ export interface SectionTally {
 }
 
 export interface LeftoverBreakdown {
-  bankBalances: number;
-  actualIncome: number;
-  actualBills: number;
-  variableExpenses: number;
-  freeFlowingExpenses: number;
-  totalExpenses: number;
-  leftover: number;
-  hasActuals: boolean;
+  bankBalances: number;        // Current cash position (snapshot from bank_balances)
+  remainingIncome: number;     // Income still expected to receive
+  remainingExpenses: number;   // Expenses still need to pay (including payoff bills)
+  leftover: number;            // bank + remainingIncome - remainingExpenses
+  isValid: boolean;            // False if required bank balances are missing
+  hasActuals?: boolean;        // True if any actuals have been entered
+  missingBalances?: string[];  // IDs of payment sources missing balances
+  errorMessage?: string;       // Human-readable error message
+}
+
+export interface PayoffSummary {
+  paymentSourceId: string;
+  paymentSourceName: string;
+  balance: number;         // Current CC balance (expected payoff)
+  paid: number;            // Sum of payments made this month toward payoff
+  remaining: number;       // balance - paid
 }
 
 export interface DetailedMonthData {
@@ -93,6 +130,7 @@ export interface DetailedMonthData {
   tallies: {
     bills: SectionTally;           // Regular bills (with expected amounts)
     adhocBills: SectionTally;      // Ad-hoc bills (actual only)
+    ccPayoffs: SectionTally;       // Credit card payoff bills
     totalExpenses: SectionTally;   // Combined total
     income: SectionTally;          // Regular income
     adhocIncome: SectionTally;     // Ad-hoc income
@@ -100,6 +138,7 @@ export interface DetailedMonthData {
   };
   leftover: number;
   leftoverBreakdown: LeftoverBreakdown;
+  payoffSummaries: PayoffSummary[];  // Summary of each CC payoff status
   bankBalances: Record<string, number>;
   lastUpdated: string;
 }
@@ -260,14 +299,16 @@ function createDetailedMonthStore() {
         };
         
         // Also update leftover breakdown
+        // Note: For optimistic updates, we approximate remaining income
+        // The server will recalculate on next fetch
         const newLeftoverBreakdown = {
           ...state.data.leftoverBreakdown,
-          actualIncome: regularIncomeActual + adhocIncomeActual
+          remainingIncome: state.data.tallies.totalIncome.remaining
         };
         
-        // Recalculate leftover: actualIncome + bankBalances - totalExpenses
+        // Recalculate leftover: bankBalances + remainingIncome - remainingExpenses
         const bankBalancesTotal = Object.values(state.data.bankBalances).reduce((sum, val) => sum + val, 0);
-        const newLeftover = (regularIncomeActual + adhocIncomeActual) + bankBalancesTotal - state.data.leftoverBreakdown.totalExpenses;
+        const newLeftover = bankBalancesTotal + state.data.tallies.totalIncome.remaining - state.data.leftoverBreakdown.remainingExpenses;
         
         return {
           ...state,
@@ -278,8 +319,7 @@ function createDetailedMonthStore() {
             leftover: newLeftover,
             leftoverBreakdown: {
               ...newLeftoverBreakdown,
-              leftover: newLeftover,
-              hasActuals: (regularIncomeActual + adhocIncomeActual) > 0 || state.data.leftoverBreakdown.totalExpenses > 0
+              leftover: newLeftover
             }
           }
         };
@@ -451,6 +491,72 @@ function createDetailedMonthStore() {
           data: {
             ...state.data,
             incomeSections: newIncomeSections
+          }
+        };
+      });
+    },
+
+    // Optimistic removal of a bill instance from the store
+    removeBillInstance(instanceId: string): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const newBillSections: CategorySection[] = state.data.billSections.map(section => {
+          const billItems = section.items as BillInstanceDetailed[];
+          const newItems = billItems.filter(item => item.id !== instanceId);
+          
+          // Recalculate subtotal
+          const expected = newItems.reduce((sum, i) => sum + i.expected_amount, 0);
+          const actual = newItems.reduce((sum, i) => sum + i.total_paid, 0);
+          
+          return {
+            ...section,
+            items: newItems,
+            subtotal: { expected, actual }
+          };
+        });
+        
+        // Filter out empty sections
+        const filteredBillSections = newBillSections.filter(section => section.items.length > 0);
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            billSections: filteredBillSections
+          }
+        };
+      });
+    },
+
+    // Optimistic removal of an income instance from the store
+    removeIncomeInstance(instanceId: string): void {
+      update(state => {
+        if (!state.data) return state;
+        
+        const newIncomeSections: CategorySection[] = state.data.incomeSections.map(section => {
+          const incomeItems = section.items as IncomeInstanceDetailed[];
+          const newItems = incomeItems.filter(item => item.id !== instanceId);
+          
+          // Recalculate subtotal
+          const expected = newItems.reduce((sum, i) => sum + i.expected_amount, 0);
+          const actual = newItems.reduce((sum, i) => sum + i.total_received, 0);
+          
+          return {
+            ...section,
+            items: newItems,
+            subtotal: { expected, actual }
+          };
+        });
+        
+        // Filter out empty sections
+        const filteredIncomeSections = newIncomeSections.filter(section => section.items.length > 0);
+        
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            incomeSections: filteredIncomeSections
           }
         };
       });

@@ -138,7 +138,7 @@ dev: ## Start all services (Tauri + Bun + Vite) with logging
 
 start-bun: ## Start Bun backend server on localhost:3000
 	@echo "[$(shell date '+%Y-%m-%d %H:%M:%S')] Starting Bun backend server on localhost:3000..."
-	@cd api && bun run server.ts
+	@cd api && DATA_DIR=../data bun run server.ts
 
 start-vite: ## Start Vite dev server
 	@echo "Starting Vite dev server..."
@@ -154,8 +154,14 @@ check-prereqs: ## Quick check that all prerequisites are installed
 # Build
 build: ## Build Tauri application for current platform
 	@$(MAKE) check-prereqs
+	@$(MAKE) build-sidecar
 	@echo "Building Tauri application..."
-	@bun run build
+	@bun run tauri build
+
+build-sidecar: ## Build the standalone Bun sidecar executable
+	@echo "Building standalone sidecar executable..."
+	@cd api && bun build --compile --outfile ../src-tauri/binaries/bun-sidecar-aarch64-apple-darwin ./server.ts
+	@echo "✓ Sidecar built: src-tauri/binaries/bun-sidecar-aarch64-apple-darwin"
 
 # Clean
 clean: ## Remove build artifacts and temporary files

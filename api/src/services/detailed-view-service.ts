@@ -23,7 +23,8 @@ import type {
   CategorySection,
   BillInstanceDetailed,
   IncomeInstanceDetailed,
-  SectionTally
+  SectionTally,
+  PayoffSummary
 } from '../types';
 import { calculateDueDate, isOverdue, getDaysOverdue } from '../utils/due-date';
 import { 
@@ -37,7 +38,7 @@ import {
   getEffectiveBillAmount,
   getEffectiveIncomeAmount
 } from '../utils/tally';
-import { calculateLeftover, calculateLeftoverBreakdown, hasActualsEntered } from '../utils/leftover';
+import { calculateUnifiedLeftover, hasActualsEntered } from '../utils/leftover';
 
 export interface DetailedViewService {
   getDetailedMonth(month: string): Promise<DetailedMonthResponse>;
@@ -76,7 +77,8 @@ export class DetailedViewServiceImpl implements DetailedViewService {
     const billsMap = new Map(bills.map(b => [b.id, b]));
     const incomesMap = new Map(incomes.map(i => [i.id, i]));
     const paymentSourcesMap = new Map(paymentSources.map(ps => [ps.id, ps]));
-    const billCategories = categories.filter(c => c.type === 'bill');
+    // Include both 'bill' and 'variable' category types for expenses
+    const billCategories = categories.filter(c => c.type === 'bill' || c.type === 'variable');
     const incomeCategories = categories.filter(c => c.type === 'income');
 
     // Build detailed bill instances
@@ -102,16 +104,49 @@ export class DetailedViewServiceImpl implements DetailedViewService {
     // Calculate tallies with breakdown
     const billsTally = calculateRegularBillsTally(monthlyData.bill_instances);
     const adhocBillsTally = calculateAdhocBillsTally(monthlyData.bill_instances);
-    const totalExpensesTally = combineTallies(billsTally, adhocBillsTally);
+    
+    // Calculate CC Payoffs tally (bills with is_payoff_bill = true)
+    const payoffBills = monthlyData.bill_instances.filter(bi => bi.is_payoff_bill === true);
+    const ccPayoffsTally: SectionTally = {
+      expected: payoffBills.reduce((sum, bi) => sum + (bi.expected_amount || 0), 0),
+      actual: payoffBills.reduce((sum, bi) => {
+        // Sum of all payments - both occurrence-level and top-level (for backwards compat)
+        const occurrencePayments = (bi.occurrences || []).flatMap(o => o.payments || []);
+        const topLevelPayments = bi.payments || [];
+        const allPayments = [...occurrencePayments, ...topLevelPayments];
+        return sum + allPayments.reduce((pSum, p) => pSum + p.amount, 0);
+      }, 0),
+      remaining: 0
+    };
+    ccPayoffsTally.remaining = ccPayoffsTally.expected - ccPayoffsTally.actual;
+    
+    // Total expenses includes bills + adhoc + CC payoffs
+    const totalExpensesTally = combineTallies(combineTallies(billsTally, adhocBillsTally), ccPayoffsTally);
     
     const incomeTally = calculateRegularIncomeTally(monthlyData.income_instances);
     const adhocIncomeTally = calculateAdhocIncomeTally(monthlyData.income_instances);
     const totalIncomeTally = combineTallies(incomeTally, adhocIncomeTally);
 
-    // Calculate leftover and breakdown
-    const leftover = calculateLeftover(monthlyData);
-    const breakdown = calculateLeftoverBreakdown(monthlyData);
+    // Calculate leftover using unified calculation (pass payment sources to filter excluded accounts)
+    const leftoverResult = calculateUnifiedLeftover(monthlyData, paymentSources);
     const hasActuals = hasActualsEntered(monthlyData);
+    
+    // Build payoff summaries
+    const payoffSummaries: PayoffSummary[] = payoffBills.map(bi => {
+      const paymentSource = bi.payoff_source_id ? paymentSourcesMap.get(bi.payoff_source_id) : null;
+      // Sum payments from both occurrences and top-level
+      const occurrencePayments = (bi.occurrences || []).flatMap(o => o.payments || []);
+      const topLevelPayments = bi.payments || [];
+      const paid = [...occurrencePayments, ...topLevelPayments].reduce((sum, p) => sum + p.amount, 0);
+      const balance = bi.expected_amount || 0;
+      return {
+        paymentSourceId: bi.payoff_source_id || '',
+        paymentSourceName: paymentSource?.name || 'Unknown',
+        balance,
+        paid,
+        remaining: balance - paid
+      };
+    });
 
     return {
       month,
@@ -120,16 +155,24 @@ export class DetailedViewServiceImpl implements DetailedViewService {
       tallies: {
         bills: billsTally,
         adhocBills: adhocBillsTally,
+        ccPayoffs: ccPayoffsTally,
         totalExpenses: totalExpensesTally,
         income: incomeTally,
         adhocIncome: adhocIncomeTally,
         totalIncome: totalIncomeTally
       },
-      leftover,
+      leftover: leftoverResult.leftover,
       leftoverBreakdown: {
-        ...breakdown,
-        hasActuals
+        bankBalances: leftoverResult.bankBalances,
+        remainingIncome: leftoverResult.remainingIncome,
+        remainingExpenses: leftoverResult.remainingExpenses,
+        leftover: leftoverResult.leftover,
+        isValid: leftoverResult.isValid,
+        hasActuals: hasActuals,
+        missingBalances: leftoverResult.missingBalances.length > 0 ? leftoverResult.missingBalances : undefined,
+        errorMessage: leftoverResult.errorMessage
       },
+      payoffSummaries,
       bankBalances: monthlyData.bank_balances,
       lastUpdated: monthlyData.updated_at
     };
@@ -162,14 +205,24 @@ export class DetailedViewServiceImpl implements DetailedViewService {
         id: instance.id,
         bill_id: instance.bill_id,
         name: instance.name || bill?.name || 'Unknown Bill',
+        billing_period: instance.billing_period || bill?.billing_period || 'monthly',
         expected_amount: instance.expected_amount,
         actual_amount: instance.actual_amount ?? null,
         payments: instance.payments || [],
+        occurrences: instance.occurrences || [],
+        occurrence_count: (instance.occurrences || []).length,
+        is_extra_occurrence_month: instance.billing_period === 'bi_weekly' 
+          ? (instance.occurrences || []).length > 2 
+          : instance.billing_period === 'weekly' 
+            ? (instance.occurrences || []).length > 4 
+            : false,
         total_paid: totalPaid,
         remaining,
         is_paid: instance.is_paid,
         is_closed: instance.is_closed ?? instance.is_paid ?? false,
         is_adhoc: instance.is_adhoc,
+        is_payoff_bill: instance.is_payoff_bill ?? false,
+        payoff_source_id: instance.payoff_source_id,
         due_date: dueDate,
         closed_date: instance.closed_date ?? null,
         is_overdue: overdueStatus,
@@ -207,9 +260,17 @@ export class DetailedViewServiceImpl implements DetailedViewService {
         id: instance.id,
         income_id: instance.income_id,
         name: instance.name || income?.name || 'Unknown Income',
+        billing_period: instance.billing_period || income?.billing_period || 'monthly',
         expected_amount: instance.expected_amount,
         actual_amount: instance.actual_amount ?? null,
         payments,
+        occurrences: instance.occurrences || [],
+        occurrence_count: (instance.occurrences || []).length,
+        is_extra_occurrence_month: instance.billing_period === 'bi_weekly' 
+          ? (instance.occurrences || []).length > 2 
+          : instance.billing_period === 'weekly' 
+            ? (instance.occurrences || []).length > 4 
+            : false,
         total_received: totalReceived,
         remaining,
         is_paid: instance.is_paid,
@@ -259,13 +320,20 @@ export class DetailedViewServiceImpl implements DetailedViewService {
     }
 
     // Build sections, sorted by category sort_order
+    // Variable category (type: 'variable') always appears last
     const sections: CategorySection[] = [];
     
-    const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
+    const sortedCategories = [...categories].sort((a, b) => {
+      // Variable type always last
+      if (a.type === 'variable' && b.type !== 'variable') return 1;
+      if (b.type === 'variable' && a.type !== 'variable') return -1;
+      // Then by sort_order
+      return a.sort_order - b.sort_order;
+    });
     
     for (const category of sortedCategories) {
       const items = categoryInstancesMap.get(category.id) || [];
-      if (items.length === 0) continue; // Skip empty categories
+      // Include empty categories so users can add ad-hoc items to them
       
       // Sort items within category
       const sortedItems = this.sortBillInstances(items);
@@ -279,7 +347,8 @@ export class DetailedViewServiceImpl implements DetailedViewService {
           id: category.id,
           name: category.name,
           color: category.color,
-          sort_order: category.sort_order
+          sort_order: category.sort_order,
+          type: category.type
         },
         items: sortedItems,
         subtotal: { expected, actual }
@@ -298,7 +367,8 @@ export class DetailedViewServiceImpl implements DetailedViewService {
           id: uncategorizedId,
           name: 'Uncategorized',
           color: '#6b7280',
-          sort_order: 999
+          sort_order: 999,
+          type: 'bill'
         },
         items: sortedItems,
         subtotal: { expected, actual }
@@ -349,7 +419,7 @@ export class DetailedViewServiceImpl implements DetailedViewService {
     
     for (const category of sortedCategories) {
       const items = categoryInstancesMap.get(category.id) || [];
-      if (items.length === 0) continue; // Skip empty categories
+      // Include empty categories so users can add ad-hoc items to them
       
       // Sort items within category
       const sortedItems = this.sortIncomeInstances(items);
@@ -363,7 +433,8 @@ export class DetailedViewServiceImpl implements DetailedViewService {
           id: category.id,
           name: category.name,
           color: category.color,
-          sort_order: category.sort_order
+          sort_order: category.sort_order,
+          type: category.type
         },
         items: sortedItems,
         subtotal: { expected, actual }
@@ -382,7 +453,8 @@ export class DetailedViewServiceImpl implements DetailedViewService {
           id: uncategorizedId,
           name: 'Uncategorized',
           color: '#6b7280',
-          sort_order: 999
+          sort_order: 999,
+          type: 'income'
         },
         items: sortedItems,
         subtotal: { expected, actual }

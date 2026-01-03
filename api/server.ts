@@ -5,6 +5,12 @@
 
 import { serve } from 'bun';
 import { routes } from './src/routes';
+import { StorageServiceImpl } from './src/services/storage';
+
+// Initialize storage service with DATA_DIR from environment or default
+// In production, Tauri passes DATA_DIR when spawning the sidecar
+// In development, it defaults to './data' (project-relative)
+StorageServiceImpl.initialize();
 
 // Logging utility with timestamps
 function log(level: 'INFO' | 'ERROR' | 'WARN' | 'DEBUG', message: string, ...args: unknown[]) {
@@ -208,6 +214,10 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
     //   Route: [api, months, bills, reset]
     //   Request: [api, months, 2025-01, bills, UUID, reset]
     //   Match when route's last segment matches request's last segment
+    // Pattern C: month + instanceId + occurrenceId (occurrence endpoints without action)
+    //   e.g., /api/months/bills/occurrences -> /api/months/2026-01/bills/UUID/occurrences/OCC-UUID
+    //   Route: [api, months, bills, occurrences]
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID]
     
     const lastRouteSegment = routeSegments[routeSegments.length - 1];
     const lastRequestSegment = requestSegments[requestSegments.length - 1];
@@ -244,6 +254,72 @@ function matchRoute(requestPath: string, routePath: string, hasPathParam: boolea
         }
       }
       if (patternBMatch) return true;
+    }
+    
+    // Pattern C: occurrence pattern - month + instanceId + occurrenceId (for routes without action)
+    //   Route: [api, months, bills, occurrences] (4 segments)
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID] (7 segments)
+    //   Match: route[0,1] == req[0,1], route[2] == req[3], route[3] == req[5]
+    if (routeSegments.length === 4 && (routeSegments[3] === 'occurrences')) {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // bills|incomes
+          routeSegments[3] === requestSegments[5]) {    // occurrences
+        return true;
+      }
+    }
+    
+    // Pattern D: occurrence pattern with action - month + instanceId + occurrenceId + action
+    //   Route: [api, months, bills, occurrences, close] (5 segments)
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID, close] (8 segments)
+    //   Match: route[0,1] == req[0,1], route[2] == req[3], route[3] == req[5], route[4] == req[7]
+    if (routeSegments.length === 5 && routeSegments[3] === 'occurrences') {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // bills|incomes
+          routeSegments[3] === requestSegments[5] &&    // occurrences
+          routeSegments[4] === requestSegments[7]) {    // close|reopen|payments
+        return true;
+      }
+    }
+  }
+  
+  if (extraSegments === 4) {
+    // Four extra segments - occurrence routes with action:
+    //   e.g., /api/months/bills/occurrences/close -> /api/months/2026-01/bills/UUID/occurrences/OCC-UUID/close
+    //   Route: [api, months, bills, occurrences, close] (5 segments)
+    //   Request: [api, months, 2026-01, bills, UUID, occurrences, OCC-UUID, close] (8 segments)
+    //   Match: route[0,1] == req[0,1], route[2] == req[3], route[3] == req[5], route[4] == req[7]
+    
+    const lastRouteSegment = routeSegments[routeSegments.length - 1];
+    const lastRequestSegment = requestSegments[requestSegments.length - 1];
+    
+    // Pattern A: last segments match (action like close, reopen, payments)
+    if (lastRouteSegment === lastRequestSegment) {
+      // Verify occurrence pattern
+      if (routeSegments.length === 5 && routeSegments[3] === 'occurrences') {
+        if (routeSegments[0] === requestSegments[0] &&    // api
+            routeSegments[1] === requestSegments[1] &&    // months
+            routeSegments[2] === requestSegments[3] &&    // bills|incomes
+            routeSegments[3] === requestSegments[5]) {    // occurrences
+          return true;
+        }
+      }
+    }
+    
+    // Pattern B: occurrence payment DELETE (paymentId at end)
+    //   Route: [api, months, bills, occurrences, payments] (5 segments)
+    //   Request: [api, months, 2025-12, bills, UUID, occurrences, occId, payments, paymentId] (9 segments)
+    //   Match: route[4] == req[7] (payments), with paymentId at req[8]
+    const secondToLastRequestSegment = requestSegments[requestSegments.length - 2];
+    if (lastRouteSegment === secondToLastRequestSegment && routeSegments.length === 5 && routeSegments[3] === 'occurrences') {
+      if (routeSegments[0] === requestSegments[0] &&    // api
+          routeSegments[1] === requestSegments[1] &&    // months
+          routeSegments[2] === requestSegments[3] &&    // bills|incomes
+          routeSegments[3] === requestSegments[5] &&    // occurrences
+          routeSegments[4] === requestSegments[7]) {    // payments
+        return true;
+      }
     }
   }
   
@@ -314,6 +390,10 @@ const server = serve({
   }
 });
 
+// Log startup info
+const storageConfig = StorageServiceImpl.getConfig();
 log('INFO', `Bun backend server running on http://localhost:${PORT}`);
 log('INFO', `Health check: http://localhost:${PORT}/health`);
 log('INFO', `Registered ${routes.length} routes`);
+log('INFO', `Data directory: ${storageConfig.basePath}`);
+log('INFO', `Mode: ${storageConfig.isDevelopment ? 'development' : 'production'}`);

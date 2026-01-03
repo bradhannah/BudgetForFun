@@ -4,10 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.bradhannah.budgetforfun",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "make build",
-    "beforeBundleCommand": "make build",
+    "beforeBuildCommand": "bun run vite build",
     "frontendDist": "../build"
   },
   "app": {

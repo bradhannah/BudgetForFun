@@ -17,8 +17,11 @@
   
   let showTransactionsDrawer = false;
   let showMakeRegularDrawer = false;
+  let showDeleteConfirm = false;
   let isEditingExpected = false;
   let expectedEditValue = '';
+  let isEditingDueDay = false;
+  let editingDayValue = '';
   let saving = false;
   
   function formatCurrency(cents: number): string {
@@ -34,6 +37,23 @@
     if (!dateStr) return '-';
     const date = new Date(dateStr + 'T00:00:00');
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  
+  function formatDayOfMonth(dateStr: string | null): string {
+    if (!dateStr) return '';
+    const day = parseInt(dateStr.split('-')[2], 10);
+    const suffix = getDaySuffix(day);
+    return `${day}${suffix}`;
+  }
+  
+  function getDaySuffix(day: number): string {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
   }
   
   function parseDollarsToCents(value: string): number {
@@ -52,7 +72,43 @@
   $: showAmber = totalReceived !== income.expected_amount && totalReceived > 0;
   $: isPartiallyReceived = hasTransactions && totalReceived > 0 && totalReceived < income.expected_amount && !isClosed;
   
+  // Single-occurrence detection for "on Xth" display
+  $: occurrences = (income as any).occurrences ?? [];
+  $: isSingleOccurrence = occurrences.length <= 1;
+  $: firstOccurrenceDate = occurrences[0]?.expected_date || income.due_date;
+  
+  // Helper to get last day of month from month string (YYYY-MM)
+  function getLastDayOfMonth(monthStr: string): string {
+    const [year, monthNum] = monthStr.split('-').map(Number);
+    // Day 0 of next month = last day of current month
+    const lastDay = new Date(year, monthNum, 0).getDate();
+    return `${monthStr}-${String(lastDay).padStart(2, '0')}`;
+  }
+  
   // Actions
+  async function handleAddOccurrence() {
+    if (saving || readOnly || !month) return;
+    
+    saving = true;
+    try {
+      // Add occurrence at end of month with full expected amount
+      const expectedDate = getLastDayOfMonth(month);
+      const expectedAmount = income.expected_amount;
+      
+      await apiClient.post(`/api/months/${month}/incomes/${income.id}/occurrences`, {
+        expected_date: expectedDate,
+        expected_amount: expectedAmount
+      });
+      
+      success('Occurrence added');
+      dispatch('refresh');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to add occurrence');
+    } finally {
+      saving = false;
+    }
+  }
+  
   async function handleReceiveFull() {
     if (saving) return;
     saving = true;
@@ -160,6 +216,66 @@
     }
   }
   
+  // Due day editing functions
+  function startEditingDueDay() {
+    if (readOnly || isClosed || !isSingleOccurrence) return;
+    const day = parseInt(firstOccurrenceDate?.split('-')[2] || '1', 10);
+    editingDayValue = day.toString();
+    isEditingDueDay = true;
+  }
+  
+  async function saveDueDay() {
+    let newDay = parseInt(editingDayValue, 10);
+    if (isNaN(newDay) || newDay < 1) {
+      showError('Please enter a valid day (1-31)');
+      return;
+    }
+    
+    // Cap at last day of month
+    const [year, monthNum] = month.split('-').map(Number);
+    const lastDayOfMonth = new Date(year, monthNum, 0).getDate();
+    newDay = Math.min(newDay, lastDayOfMonth);
+    
+    const newDate = `${month}-${newDay.toString().padStart(2, '0')}`;
+    
+    if (newDate === firstOccurrenceDate) {
+      isEditingDueDay = false;
+      return;
+    }
+    
+    saving = true;
+    try {
+      const occurrenceId = occurrences[0]?.id;
+      if (!occurrenceId) {
+        showError('No occurrence found to update');
+        return;
+      }
+      await apiClient.putPath(`/api/months/${month}/incomes/${income.id}/occurrences/${occurrenceId}`, {
+        expected_date: newDate
+      });
+      success('Due date updated');
+      isEditingDueDay = false;
+      dispatch('refresh');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to update date');
+    } finally {
+      saving = false;
+    }
+  }
+  
+  function cancelEditingDueDay() {
+    isEditingDueDay = false;
+    editingDayValue = '';
+  }
+  
+  function handleDueDayKeydown(event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      saveDueDay();
+    } else if (event.key === 'Escape') {
+      cancelEditingDueDay();
+    }
+  }
+  
   function openTransactionsDrawer() {
     showTransactionsDrawer = true;
   }
@@ -174,6 +290,34 @@
   
   function handleTransactionsUpdated() {
     dispatch('refresh');
+  }
+  
+  function confirmDeleteIncome() {
+    showDeleteConfirm = true;
+  }
+  
+  function cancelDelete() {
+    showDeleteConfirm = false;
+  }
+  
+  async function handleDeleteIncome() {
+    if (saving) return;
+    
+    saving = true;
+    showDeleteConfirm = false;
+    
+    try {
+      await apiClient.deletePath(`/api/months/${month}/incomes/${income.id}`);
+      success('Income deleted');
+      // Optimistic update - remove from store immediately to prevent cycling bug
+      detailedMonth.removeIncomeInstance(income.id);
+      // Then refresh to update tallies from server
+      dispatch('refresh');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Failed to delete income');
+    } finally {
+      saving = false;
+    }
   }
 </script>
 
@@ -190,6 +334,27 @@
       <div class="income-info">
         <span class="income-name" class:closed-text={isClosed}>
           {income.name}
+          {#if isSingleOccurrence && firstOccurrenceDate && !isClosed}
+            {#if isEditingDueDay}
+              <span class="due-day-edit">
+                on <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  class="due-day-input"
+                  bind:value={editingDayValue}
+                  on:keydown={handleDueDayKeydown}
+                  on:blur={saveDueDay}
+                  disabled={saving}
+                  autofocus
+                />
+              </span>
+            {:else}
+              <button class="due-day" on:click={startEditingDueDay} title="Click to edit due date">
+                on {formatDayOfMonth(firstOccurrenceDate)}
+              </button>
+            {/if}
+          {/if}
           {#if income.is_adhoc}
             <span class="badge adhoc-badge">ad-hoc</span>
             <button class="make-regular-link" on:click={handleMakeRegular}>
@@ -239,6 +404,7 @@
           <button 
             class="amount-value clickable" 
             class:disabled={isClosed}
+            class:editable-highlight={!isClosed}
             on:click={startEditingExpected}
             title={isClosed ? 'Reopen to edit' : 'Click to edit'}
           >
@@ -294,6 +460,36 @@
             Receive Full
           </button>
         {/if}
+        
+        <!-- Add occurrence button (not when closed) -->
+        {#if !readOnly && !isClosed && month}
+          <button 
+            class="action-btn-icon add" 
+            on:click={handleAddOccurrence} 
+            disabled={saving}
+            title="Add occurrence"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+        {/if}
+        
+        <!-- Delete button for any income (when not read-only) -->
+        {#if !readOnly}
+          <button 
+            class="action-btn-icon delete" 
+            on:click={confirmDeleteIncome} 
+            disabled={saving}
+            title="Delete income"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+          </button>
+        {/if}
       </div>
     </div>
   </div>
@@ -326,6 +522,25 @@
   />
 {/if}
 
+<!-- Delete Confirmation Dialog -->
+{#if showDeleteConfirm}
+  <div class="confirm-overlay" on:click={cancelDelete} on:keydown={(e) => e.key === 'Escape' && cancelDelete()} role="dialog" aria-modal="true" tabindex="-1">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="confirm-dialog" on:click|stopPropagation>
+      <h3>Delete Income</h3>
+      <p>Are you sure you want to delete "<strong>{income.name}</strong>"?</p>
+      <p class="confirm-warning">This action cannot be undone.</p>
+      <div class="confirm-actions">
+        <button class="confirm-btn cancel" on:click={cancelDelete}>Cancel</button>
+        <button class="confirm-btn delete" on:click={handleDeleteIncome} disabled={saving}>
+          {saving ? 'Deleting...' : 'Delete'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .income-row-container {
     margin-bottom: 4px;
@@ -349,18 +564,6 @@
   .income-row.closed {
     background: rgba(74, 222, 128, 0.05);
     opacity: 0.7;
-  }
-  
-  .income-row.partial {
-    border-left: 3px solid #f59e0b;
-  }
-  
-  .income-row.overdue:not(.partial) {
-    border-left: 3px solid #f59e0b;
-  }
-  
-  .income-row.adhoc:not(.partial):not(.overdue) {
-    border-left: 3px solid #a78bfa;
   }
   
   .income-main {
@@ -390,6 +593,53 @@
   .closed-text {
     text-decoration: line-through;
     opacity: 0.6;
+  }
+  
+  .due-day {
+    font-weight: 400;
+    color: #888;
+    font-size: 0.85rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  
+  .due-day:hover {
+    color: #24c8db;
+    text-decoration: underline;
+  }
+  
+  .due-day-edit {
+    font-weight: 400;
+    color: #888;
+    font-size: 0.85rem;
+  }
+  
+  .due-day-input {
+    width: 35px;
+    padding: 1px 4px;
+    background: #0f0f1a;
+    border: 1px solid #24c8db;
+    border-radius: 4px;
+    color: #e4e4e7;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+  
+  .due-day-input:focus {
+    outline: none;
+  }
+  
+  /* Hide spinner buttons */
+  .due-day-input::-webkit-outer-spin-button,
+  .due-day-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .due-day-input[type=number] {
+    -moz-appearance: textfield;
   }
   
   .badge {
@@ -506,6 +756,20 @@
   
   .amount-value.amber {
     color: #f59e0b;
+  }
+  
+  /* Yellow/amber highlight for editable values */
+  .amount-value.editable-highlight {
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  
+  .amount-value.editable-highlight:hover:not(.disabled) {
+    background: rgba(251, 191, 36, 0.25);
+    border-color: rgba(251, 191, 36, 0.6);
+    color: #fbbf24;
   }
   
   .amount-value.remaining {
@@ -675,5 +939,119 @@
   
   .income-row.compact .action-buttons {
     min-width: 70px;
+  }
+  
+  /* Delete icon button */
+  .action-btn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .action-btn-icon:hover:not(:disabled) {
+    background: rgba(255, 68, 68, 0.1);
+    color: #ff4444;
+  }
+  
+  .action-btn-icon.delete:hover:not(:disabled) {
+    background: #ff4444;
+    color: #fff;
+  }
+  
+  .action-btn-icon.add:hover:not(:disabled) {
+    background: rgba(36, 200, 219, 0.15);
+    color: #24c8db;
+  }
+  
+  .action-btn-icon:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  
+  /* Confirmation dialog */
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .confirm-dialog {
+    background: #1a1a2e;
+    border: 1px solid #333355;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+  }
+  
+  .confirm-dialog h3 {
+    margin: 0 0 16px;
+    font-size: 1.1rem;
+    color: #e4e4e7;
+  }
+  
+  .confirm-dialog p {
+    margin: 0 0 8px;
+    color: #a0a0a0;
+    font-size: 0.9rem;
+  }
+  
+  .confirm-warning {
+    color: #f87171 !important;
+    font-size: 0.8rem !important;
+    margin-bottom: 20px !important;
+  }
+  
+  .confirm-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+  
+  .confirm-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  
+  .confirm-btn.cancel {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+  }
+  
+  .confirm-btn.cancel:hover {
+    border-color: #666;
+    color: #e4e4e7;
+  }
+  
+  .confirm-btn.delete {
+    background: #ff4444;
+    border: none;
+    color: #fff;
+  }
+  
+  .confirm-btn.delete:hover:not(:disabled) {
+    background: #cc3333;
+  }
+  
+  .confirm-btn.delete:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>
