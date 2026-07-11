@@ -52,6 +52,16 @@ describe('SavingsGoalsHandlers', () => {
       updated_at: '2026-01-01T00:00:00.000Z',
     },
     {
+      id: 'goal-open-ended',
+      name: 'Open Ended Goal',
+      current_amount: 0,
+      target_date: '2027-01-01',
+      linked_account_id: 'ps-savings-001',
+      status: 'saving',
+      created_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    },
+    {
       id: 'goal-bought-001',
       name: 'Bought Goal',
       target_amount: 50000,
@@ -448,6 +458,22 @@ describe('SavingsGoalsHandlers', () => {
       expect(data.summary).toHaveProperty('progress_percentage');
       expect(data.summary).toHaveProperty('total_saved');
       expect(data.summary).toHaveProperty('total_remaining');
+    });
+
+    test('should report funding metrics as unavailable for an open-ended goal', async () => {
+      const handler = createSavingsGoalsPaymentsHandler();
+      const request = new Request('http://localhost/api/savings-goals/goal-open-ended/payments', {
+        method: 'GET',
+      });
+
+      const response = await handler(request);
+      expect(response.status).toBe(200);
+
+      const data = await response.json();
+      expect(data.target_amount).toBeUndefined();
+      expect(data.summary.progress_percentage).toBeNull();
+      expect(data.summary.total_remaining).toBeNull();
+      expect(data.summary.projected_completion_date).toBeNull();
     });
   });
 

@@ -48,7 +48,7 @@
   interface ScheduleSummary {
     amount: number;
     frequency: string;
-    paymentsLeft: number;
+    paymentsLeft: number | null;
   }
   let scheduleSummaries: Map<string, ScheduleSummary> = new Map();
 
@@ -89,9 +89,14 @@
         const activeBill = bills.find((b) => b.is_active);
 
         if (activeBill) {
-          const remainingAmount = (goal.target_amount ?? 0) - (goal.saved_amount || 0);
+          const remainingAmount =
+            goal.target_amount != null ? goal.target_amount - (goal.saved_amount || 0) : null;
           const paymentsLeft =
-            remainingAmount > 0 ? Math.ceil(remainingAmount / activeBill.amount) : 0;
+            remainingAmount != null
+              ? remainingAmount > 0
+                ? Math.ceil(remainingAmount / activeBill.amount)
+                : 0
+              : null;
 
           const frequency =
             activeBill.billing_period === 'weekly'
@@ -322,7 +327,7 @@
       {#each filteredGoals as goal (goal.id)}
         {@const daysRemaining = goal.target_date ? getDaysRemaining(goal.target_date) : null}
         {@const isOverdue = daysRemaining !== null && daysRemaining < 0 && goal.status === 'saving'}
-        {@const isOpenEnded = !goal.target_date}
+        {@const isOpenEnded = goal.target_amount == null}
         {@const isOpen = goal.status === 'saving' || goal.status === 'paused'}
         <div
           class="goal-card"
@@ -414,7 +419,7 @@
                 <div
                   class="progress-bar"
                   style="width: {Math.min(
-                    goal.progress_percentage || 0,
+                    goal.progress_percentage ?? 0,
                     100
                   )}%; background-color: {getTemperatureColor(goal.temperature)}"
                 ></div>
@@ -472,7 +477,9 @@
                 </svg>
                 <span class="schedule-text">
                   {formatCurrency(schedule.amount)}{schedule.frequency}
-                  {#if schedule.paymentsLeft > 0}
+                  {#if schedule.paymentsLeft == null}
+                    <span class="schedule-payments">• Open Ended</span>
+                  {:else if schedule.paymentsLeft > 0}
                     <span class="schedule-payments"
                       >• {schedule.paymentsLeft} payment{schedule.paymentsLeft === 1 ? '' : 's'} left</span
                     >
@@ -485,7 +492,7 @@
           {/if}
 
           <!-- Temperature indicator (only for active goals) -->
-          {#if goal.status === 'saving'}
+          {#if goal.status === 'saving' && goal.target_amount != null && goal.target_date}
             <div
               class="temperature-indicator"
               style="color: {getTemperatureColor(goal.temperature)}"
@@ -556,7 +563,9 @@
             {/if}
             <div class="info-item">
               <span class="info-label">Progress</span>
-              <span class="info-value">{goal.progress_percentage}%</span>
+              <span class="info-value">
+                {goal.progress_percentage == null ? 'Open Ended' : `${goal.progress_percentage}%`}
+              </span>
             </div>
             {#if goal.completed_at}
               <div class="info-item">

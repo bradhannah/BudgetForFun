@@ -33,7 +33,7 @@ interface SavingsGoalWithCalculations {
   notes?: string;
   temperature: GoalTemperature;
   expected_amount: number; // Expected amount based on linear progress
-  progress_percentage: number; // Percentage of target reached
+  progress_percentage: number | null; // Percentage of target reached, or null without a target
   created_at: string;
   updated_at: string;
 }
@@ -100,7 +100,7 @@ async function enhanceGoalWithCalculations(
   const progressPercentage =
     goal.target_amount != null && goal.target_amount > 0
       ? Math.min(100, Math.round((savedAmount / goal.target_amount) * 100))
-      : 0;
+      : null;
 
   return {
     ...goal,
@@ -1107,9 +1107,9 @@ export function createSavingsGoalsPaymentsHandler() {
       const totalSaved = rawPayments
         .filter((p) => p.status === 'completed')
         .reduce((sum, p) => sum + p.amount, 0);
-      const remaining = goal.target_amount != null ? goal.target_amount - totalSaved : 0;
+      const remaining = goal.target_amount != null ? goal.target_amount - totalSaved : null;
 
-      if (remaining > 0 && linkedBills.length > 0 && goal.target_amount != null) {
+      if (remaining != null && remaining > 0 && linkedBills.length > 0) {
         // Get the primary linked bill for projections (use the first active one)
         const activeBill = linkedBills.find((b) => b.is_active);
         if (activeBill) {
@@ -1172,7 +1172,7 @@ export function createSavingsGoalsPaymentsHandler() {
       const progressPercentage =
         goal.target_amount != null && goal.target_amount > 0
           ? Math.min(100, Math.round((totalCompleted / goal.target_amount) * 100))
-          : 0;
+          : null;
 
       // Find projected completion date (first payment where balance >= target)
       // Only for goals with a target amount
@@ -1190,7 +1190,7 @@ export function createSavingsGoalsPaymentsHandler() {
           summary: {
             total_saved: totalCompleted,
             total_remaining:
-              goal.target_amount != null ? Math.max(0, goal.target_amount - totalCompleted) : 0,
+              goal.target_amount != null ? Math.max(0, goal.target_amount - totalCompleted) : null,
             progress_percentage: progressPercentage,
             projected_completion_date: projectedCompletionDate,
           },

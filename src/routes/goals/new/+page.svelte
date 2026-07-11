@@ -13,7 +13,7 @@
   let targetDate = '';
   let linkedAccountId = '';
   let notes = '';
-  let isOpenEnded = false; // No target date - indefinite saving
+  let isOpenEnded = false; // No target date
   let hasTargetAmount = true; // Whether user has a specific target amount in mind
 
   let saving = false;
@@ -348,7 +348,7 @@
           />
           <label class="checkbox-field open-ended-checkbox">
             <input type="checkbox" bind:checked={isOpenEnded} />
-            <span>Open-ended goal (no target date)</span>
+            <span>No target date</span>
           </label>
         </div>
       </div>

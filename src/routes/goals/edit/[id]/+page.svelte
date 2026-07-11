@@ -104,17 +104,25 @@
   $: activeBill = activeBills[0]; // Primary active schedule
 
   // Payment schedule calculations (for goals without active bills)
-  $: targetAmountCents = goal?.target_amount || 0;
-  $: remainingAmount = targetAmountCents - (goal?.saved_amount || 0);
+  $: remainingAmount =
+    goal?.target_amount != null ? goal.target_amount - (goal.saved_amount || 0) : null;
   $: daysUntilTarget = calculateDaysUntil(targetDate);
   $: weeksUntilTarget = Math.ceil(daysUntilTarget / 7);
   $: monthsUntilTarget = calculateMonthsUntil(targetDate);
 
   // Calculated payment amounts based on REMAINING amount
-  $: weeklyPayment = weeksUntilTarget > 0 ? Math.ceil(remainingAmount / weeksUntilTarget) : 0;
+  $: weeklyPayment =
+    remainingAmount != null && weeksUntilTarget > 0
+      ? Math.ceil(remainingAmount / weeksUntilTarget)
+      : 0;
   $: biweeklyPayment =
-    weeksUntilTarget > 1 ? Math.ceil(remainingAmount / Math.ceil(weeksUntilTarget / 2)) : 0;
-  $: monthlyPayment = monthsUntilTarget > 0 ? Math.ceil(remainingAmount / monthsUntilTarget) : 0;
+    remainingAmount != null && weeksUntilTarget > 1
+      ? Math.ceil(remainingAmount / Math.ceil(weeksUntilTarget / 2))
+      : 0;
+  $: monthlyPayment =
+    remainingAmount != null && monthsUntilTarget > 0
+      ? Math.ceil(remainingAmount / monthsUntilTarget)
+      : 0;
 
   // Calculate final payment dates for each schedule option
   $: weeklyFinalDate = calculateFinalPaymentDate('weekly', scheduleStartDate);
@@ -123,8 +131,6 @@
 
   // Custom amount calculations
   $: customAmountCents = Math.round((parseFloat(customAmountDollars) || 0) * 100);
-  $: customPaymentsNeeded =
-    customAmountCents > 0 ? Math.ceil(remainingAmount / customAmountCents) : 0;
   $: customCompletionInfo = calculateCustomCompletionInfo(
     customAmountCents,
     customFrequency,
@@ -151,7 +157,7 @@
     startDate: string,
     goalTargetDate: string
   ): CustomCompletionInfo | null {
-    if (amount <= 0 || remainingAmount <= 0) return null;
+    if (amount <= 0 || remainingAmount == null || remainingAmount <= 0) return null;
 
     const paymentsNeeded = Math.ceil(remainingAmount / amount);
     const start = parseLocalDate(startDate);
@@ -634,7 +640,7 @@
                 bind:checked={isOpenEnded}
                 disabled={goal.status === 'bought' || goal.status === 'abandoned'}
               />
-              <span>Open-ended goal (no target date)</span>
+              <span>No target date</span>
             </label>
           </div>
         </div>
@@ -984,7 +990,7 @@
             <!-- Add Schedule Button -->
             <div class="no-schedule">
               <p class="no-schedule-text">No payment schedule set up yet.</p>
-              {#if !isOpenEnded && daysUntilTarget > 0 && remainingAmount > 0}
+              {#if hasTargetAmount && !isOpenEnded && daysUntilTarget > 0 && remainingAmount != null && remainingAmount > 0}
                 <button type="button" class="btn-accent" on:click={() => (showScheduleForm = true)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path
@@ -1002,7 +1008,7 @@
                   </svg>
                   Add Payment Schedule
                 </button>
-              {:else if isOpenEnded}
+              {:else if !hasTargetAmount || isOpenEnded}
                 <button type="button" class="btn-accent" on:click={() => (showScheduleForm = true)}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                     <path
@@ -1020,7 +1026,7 @@
                   </svg>
                   Set Your Own Amount
                 </button>
-              {:else if remainingAmount <= 0}
+              {:else if remainingAmount != null && remainingAmount <= 0}
                 <p class="schedule-hint">Goal is fully funded!</p>
               {:else}
                 <p class="schedule-hint">

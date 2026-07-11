@@ -27,7 +27,7 @@ export interface SavingsGoal {
   notes?: string;
   temperature: GoalTemperature; // Calculated: green/yellow/red
   expected_amount: number; // Calculated: expected based on linear progress
-  progress_percentage: number; // Calculated: percentage of target reached
+  progress_percentage: number | null; // Calculated percentage, or null without a target
   created_at: string;
   updated_at: string;
 }

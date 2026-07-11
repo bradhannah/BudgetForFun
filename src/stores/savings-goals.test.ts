@@ -240,6 +240,18 @@ describe('Savings Goals Store', () => {
         const goal = sampleGoals[3]; // bought goal at 100%
         expect(formatGoalProgress(goal)).toBe('$1000.00 / $1000.00 (100%)');
       });
+
+      it('formats a goal without a target as saved rather than zero percent', () => {
+        const goal: SavingsGoal = {
+          ...sampleGoals[0],
+          target_amount: undefined,
+          target_date: '2027-01-01',
+          saved_amount: 25000,
+          progress_percentage: null,
+        };
+
+        expect(formatGoalProgress(goal)).toBe('$250.00 saved');
+      });
     });
   });
 

@@ -18,12 +18,12 @@
 
   interface PaymentsResponse {
     goal_id: string;
-    target_amount: number;
+    target_amount?: number;
     payments: PaymentItem[];
     summary: {
       total_saved: number;
-      total_remaining: number;
-      progress_percentage: number;
+      total_remaining: number | null;
+      progress_percentage: number | null;
       projected_completion_date: string | null;
     };
   }
@@ -103,19 +103,26 @@
       <!-- Progress bar -->
       <div class="progress-section">
         <div class="progress-header">
-          <span class="progress-label">{data.summary.progress_percentage}% complete</span>
-          <span class="progress-amount"
-            >{formatCurrency(data.summary.total_saved)} of {formatCurrency(
-              data.target_amount
-            )}</span
-          >
+          {#if data.target_amount != null && data.summary.progress_percentage != null}
+            <span class="progress-label">{data.summary.progress_percentage}% complete</span>
+            <span class="progress-amount"
+              >{formatCurrency(data.summary.total_saved)} of {formatCurrency(
+                data.target_amount
+              )}</span
+            >
+          {:else}
+            <span class="progress-label">Open Ended</span>
+            <span class="progress-amount">{formatCurrency(data.summary.total_saved)} saved</span>
+          {/if}
         </div>
-        <div class="progress-bar">
-          <div
-            class="progress-fill"
-            style="width: {Math.min(100, data.summary.progress_percentage)}%"
-          ></div>
-        </div>
+        {#if data.summary.progress_percentage != null}
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              style="width: {Math.min(100, data.summary.progress_percentage)}%"
+            ></div>
+          </div>
+        {/if}
       </div>
 
       <!-- Payment list -->
@@ -163,7 +170,7 @@
                 <span class="col-amount">+{formatCurrency(payment.amount)}</span>
                 <span class="col-balance">{formatCurrency(payment.balance)}</span>
               </div>
-              {#if payment.balance >= data.target_amount && (index === 0 || upcomingPayments[index - 1].balance < data.target_amount)}
+              {#if data.target_amount != null && payment.balance >= data.target_amount && (index === 0 || upcomingPayments[index - 1].balance < data.target_amount)}
                 <div class="target-reached">
                   <span class="target-icon">&#10003;</span>
                   <span>Target reached!</span>
@@ -175,7 +182,7 @@
       </div>
 
       <!-- Projected completion -->
-      {#if data.summary.projected_completion_date && data.summary.progress_percentage < 100}
+      {#if data.summary.projected_completion_date && data.summary.progress_percentage != null && data.summary.progress_percentage < 100}
         <div class="completion-note">
           Projected to reach target by {formatDateWithYear(data.summary.projected_completion_date)}
         </div>
