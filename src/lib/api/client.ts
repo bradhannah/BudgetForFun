@@ -67,7 +67,9 @@ export const apiClient = {
   async get(path: string) {
     const response = await fetch(apiUrl(path));
     if (!response.ok) {
-      throw new Error(`GET ${path} failed: ${response.statusText}`);
+      const error = await response.json().catch(() => ({}));
+      const message = error.message || error.error || `GET ${path} failed: ${response.statusText}`;
+      throw new Error(message);
     }
     return response.json();
   },

@@ -354,6 +354,7 @@ async fn start_bun_sidecar_internal(
                 }
                 CommandEvent::Stderr(line_bytes) => {
                     let line = String::from_utf8_lossy(&line_bytes);
+                    eprintln!("[Sidecar] {}", line);
                     let _ = app_clone.emit("bun-sidecar-error", Some(format!("{}", line)));
                 }
                 CommandEvent::Terminated(payload) => {

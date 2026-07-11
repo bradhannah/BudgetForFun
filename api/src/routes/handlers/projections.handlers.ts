@@ -1,7 +1,7 @@
 // Projections API Handlers
 
 import { ProjectionsService, ProjectionsServiceImpl } from '../../services/projections-service';
-import { formatErrorForUser } from '../../utils/errors';
+import { formatErrorForUser, ValidationError } from '../../utils/errors';
 
 const projectionsService: ProjectionsService = new ProjectionsServiceImpl();
 
@@ -39,7 +39,7 @@ export function createProjectionsHandlerGET() {
         }),
         {
           headers: { 'Content-Type': 'application/json' },
-          status: 500,
+          status: error instanceof ValidationError ? 400 : 500,
         }
       );
     }

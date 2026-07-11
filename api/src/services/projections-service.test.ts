@@ -11,6 +11,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { PaymentSource, MonthlyData, Category } from '../types';
+import { ValidationError } from '../utils/errors';
 
 describe('ProjectionsService', () => {
   let service: ProjectionsServiceImpl;
@@ -267,6 +268,26 @@ describe('ProjectionsService', () => {
       expect(result.days[0].date).toBe('2026-03-01');
       expect(result.days[8].date).toBe('2026-03-09');
     });
+  });
+
+  test('reports missing bank balances as validation error', async () => {
+    const julyData: MonthlyData = {
+      month: '2027-07',
+      bill_instances: [],
+      income_instances: [],
+      variable_expenses: [],
+      free_flowing_expenses: [],
+      bank_balances: {},
+      is_read_only: false,
+      created_at: now,
+      updated_at: now,
+    };
+    await writeFile(join(testDir, 'months', '2027-07.json'), JSON.stringify(julyData, null, 2));
+
+    await expect(service.getProjection('2027-07')).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.getProjection('2027-07')).rejects.toThrow(
+      'Enter bank balances to calculate leftover. Missing: Checking'
+    );
   });
 
   // ============================================================================

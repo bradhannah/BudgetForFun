@@ -128,11 +128,27 @@ describe('API Client', () => {
           ok: false,
           status: 404,
           statusText: 'Not Found',
+          json: () => Promise.reject(new Error('Not JSON')),
         } as Response)
       );
 
       await expect(apiClient.get('/api/missing')).rejects.toThrow(
         'GET /api/missing failed: Not Found'
+      );
+    });
+
+    it('uses the API error message on non-OK responses', async () => {
+      mockFetch.mockReturnValue(
+        Promise.resolve({
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          json: () => Promise.resolve({ error: 'Enter bank balances. Missing: Main Chequing' }),
+        } as Response)
+      );
+
+      await expect(apiClient.get('/api/projections?month=2026-07')).rejects.toThrow(
+        'Enter bank balances. Missing: Main Chequing'
       );
     });
   });

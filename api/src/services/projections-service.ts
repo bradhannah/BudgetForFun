@@ -6,6 +6,7 @@ import type { ProjectionResponse, BillInstanceDetailed, IncomeInstanceDetailed }
 import { calculateUnifiedLeftover } from '../utils/leftover';
 import { getOverdueBills, sumOverdueBills } from '../utils/overdue-bills';
 import { getTodayLocalDateString } from '../utils/due-date';
+import { ValidationError } from '../utils/errors';
 
 export interface ProjectionsService {
   getProjection(month: string): Promise<ProjectionResponse>;
@@ -69,7 +70,7 @@ export class ProjectionsServiceImpl implements ProjectionsService {
     const leftoverResult = calculateUnifiedLeftover(monthlyData, paymentSources);
 
     if (!leftoverResult.isValid) {
-      throw new Error(
+      throw new ValidationError(
         leftoverResult.errorMessage || 'Enter bank balances to calculate projections'
       );
     }
