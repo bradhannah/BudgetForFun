@@ -184,9 +184,43 @@ describe('migrateOccurrenceDatesBills', () => {
     // Closed occurrence keeps its original (wrong) date - it's a historical record
     const closedOcc = result.instances[0].occurrences.find((o) => o.is_closed);
     expect(closedOcc?.expected_date).toBe('2026-04-02');
-    // Open occurrence gets the first correct date (Apr 3 — first available in sequence)
+    // The closed occurrence still consumes the first scheduled position.
     const openOcc = result.instances[0].occurrences.find((o) => !o.is_closed);
-    expect(openOcc?.expected_date).toBe('2026-04-03');
+    expect(openOcc?.expected_date).toBe('2026-04-17');
+  });
+
+  test('does not shift later bi-weekly occurrences after the first is paid', () => {
+    const bill = makeBill({
+      id: 'bill-biweekly',
+      billing_period: 'bi_weekly',
+      start_date: '2025-01-03',
+    });
+    const billMap = new Map([[bill.id, bill]]);
+
+    const instance = makeBillInstance({
+      bill_id: bill.id,
+      month: '2025-01',
+      billing_period: 'bi_weekly',
+      occurrences: [
+        makeOccurrence({
+          expected_date: '2025-01-03',
+          sequence: 1,
+          is_closed: true,
+          closed_date: '2025-01-03',
+        }),
+        makeOccurrence({ expected_date: '2025-01-17', sequence: 2 }),
+        makeOccurrence({ expected_date: '2025-01-31', sequence: 3 }),
+      ],
+    });
+
+    const result = migrateOccurrenceDatesBills([instance], billMap, '2025-01');
+
+    expect(result.changed).toBe(false);
+    expect(result.instances[0].occurrences.map((occurrence) => occurrence.expected_date)).toEqual([
+      '2025-01-03',
+      '2025-01-17',
+      '2025-01-31',
+    ]);
   });
 
   test('skips monthly billing periods', () => {
@@ -515,7 +549,7 @@ describe('migrateOccurrenceDatesIncomes', () => {
     const closedOcc = result.instances[0].occurrences.find((o) => o.is_closed);
     expect(closedOcc?.expected_date).toBe('2026-04-02'); // Preserved
     const openOcc = result.instances[0].occurrences.find((o) => !o.is_closed);
-    expect(openOcc?.expected_date).toBe('2026-04-03'); // Fixed (first available correct date)
+    expect(openOcc?.expected_date).toBe('2026-04-17'); // Fixed without reusing the closed position
   });
 
   test('skips monthly income', () => {

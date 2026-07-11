@@ -376,9 +376,10 @@ export function migrateOccurrenceDatesIncomes(
  * - Closed occurrences are never modified (historical records).
  * - Ad-hoc occurrences are never modified (user-created dates).
  * - Open non-adhoc occurrences have their expected_date corrected.
- * - If the correct date count differs from open occurrence count, extra
+ * - Closed occurrences still consume their position in the schedule.
+ * - If the correct date count differs from scheduled occurrence count, extra
  *   correct dates are ignored (user may have manually deleted occurrences)
- *   and extra open occurrences keep their current dates.
+ *   and extra scheduled occurrences keep their current dates.
  */
 function recalcOccurrenceDates(
   occurrences: BillInstance['occurrences'],
@@ -390,17 +391,16 @@ function recalcOccurrenceDates(
   // Generate the correct dates
   const correctDates = getOccurrenceDatesInMonth(billingPeriod, startDate, dayOfMonth, month);
 
-  // Separate occurrences into frozen (closed or adhoc) and fixable (open, non-adhoc)
-  const frozen = occurrences.filter((occ) => occ.is_closed || occ.is_adhoc);
-  const fixable = occurrences.filter((occ) => !occ.is_closed && !occ.is_adhoc);
+  const adhoc = occurrences.filter((occ) => occ.is_adhoc);
+  const scheduled = occurrences.filter((occ) => !occ.is_adhoc);
 
-  // Sort fixable by sequence to maintain ordering
-  fixable.sort((a, b) => a.sequence - b.sequence);
+  // Closed occurrences remain immutable but retain their scheduled position.
+  scheduled.sort((a, b) => a.sequence - b.sequence);
 
   // Check if any date actually changed
   let anyChanged = false;
-  const updatedFixable = fixable.map((occ, i) => {
-    if (i < correctDates.length && occ.expected_date !== correctDates[i]) {
+  const updatedScheduled = scheduled.map((occ, i) => {
+    if (!occ.is_closed && i < correctDates.length && occ.expected_date !== correctDates[i]) {
       anyChanged = true;
       return {
         ...occ,
@@ -413,9 +413,7 @@ function recalcOccurrenceDates(
 
   if (!anyChanged) return null;
 
-  // Rebuild the full occurrences array: frozen first, then updated fixable,
-  // re-sorted by expected_date and re-sequenced.
-  const all = [...frozen, ...updatedFixable];
+  const all = [...adhoc, ...updatedScheduled];
   all.sort((a, b) => a.expected_date.localeCompare(b.expected_date));
   return all.map((occ, i) => ({ ...occ, sequence: i + 1 }));
 }
