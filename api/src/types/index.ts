@@ -377,6 +377,16 @@ interface InsuranceCategory {
   updated_at: string;
 }
 
+interface InsuranceProvider {
+  id: string;
+  name: string; // Display name (e.g., "Dr. Smith Dental Clinic")
+  description?: string; // Optional notes about the provider
+  category_ids: string[]; // One or more InsuranceCategory IDs for filtering
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ClaimDocument {
   id: string;
   filename: string; // Stored filename (sortable format: {claim_number}_{date}_{category}_{type}.{ext})
@@ -422,7 +432,8 @@ interface InsuranceClaim {
   category_id: string; // Reference to InsuranceCategory
   category_name: string; // Denormalized category name for display
   description?: string; // Optional notes (auto-generated if empty)
-  provider_name?: string; // Service provider (e.g., "Dr. Smith Dental")
+  provider_name?: string; // Denormalized snapshot of provider name (legacy free-text or copied from InsuranceProvider)
+  provider_id?: string; // Reference to InsuranceProvider (new - replaces free-text provider_name)
   service_date: string; // When the service occurred (ISO date)
   total_amount: number; // Original invoice amount in cents
   status: ClaimStatus; // Auto-calculated: expected / draft / in_progress / closed
@@ -742,6 +753,7 @@ export type {
   FamilyMember,
   InsurancePlan,
   InsuranceCategory,
+  InsuranceProvider,
   ClaimDocument,
   PlanSnapshot,
   ClaimSubmission,

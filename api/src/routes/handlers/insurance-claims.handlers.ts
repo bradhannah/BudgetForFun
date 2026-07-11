@@ -801,6 +801,7 @@ export function createExpectedExpenseHandler() {
         family_member_id: body.family_member_id,
         category_id: body.category_id,
         provider_name: body.provider_name,
+        provider_id: body.provider_id,
         appointment_date: body.appointment_date,
         expected_cost: body.expected_cost || 0,
         expected_reimbursement: body.expected_reimbursement || 0,

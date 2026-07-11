@@ -41,12 +41,18 @@
     loadInsuranceCategories,
     deleteInsuranceCategory,
     insuranceCategories,
+    activeCategories,
   } from '../../stores/insurance-categories';
   import {
     familyMembers,
     loadFamilyMembers,
     deleteFamilyMember,
   } from '../../stores/family-members';
+  import {
+    insuranceProviders,
+    loadInsuranceProviders,
+    deleteInsuranceProvider,
+  } from '../../stores/insurance-providers';
 
   import { success, error as showError, addToast } from '../../stores/toast';
 
@@ -75,6 +81,9 @@
   import FamilyMemberForm from './FamilyMemberForm.svelte';
   import FamilyMemberView from './FamilyMemberView.svelte';
   import FamilyMembersList from './FamilyMembersList.svelte';
+  import InsuranceProviderForm from './InsuranceProviderForm.svelte';
+  import InsuranceProviderView from './InsuranceProviderView.svelte';
+  import InsuranceProvidersList from './InsuranceProvidersList.svelte';
   import TodosList from './TodosList.svelte';
   import TodoForm from './TodoForm.svelte';
   import TodoView from './TodoView.svelte';
@@ -85,7 +94,12 @@
   import type { Bill } from '../../stores/bills';
   import type { Income } from '../../stores/incomes';
   import type { Category } from '../../stores/categories';
-  import type { InsurancePlan, InsuranceCategory, FamilyMember } from '../../types/insurance';
+  import type {
+    InsurancePlan,
+    InsuranceCategory,
+    InsuranceProvider,
+    FamilyMember,
+  } from '../../types/insurance';
   import {
     todos,
     loadTodos,
@@ -122,6 +136,7 @@
     | 'insurance-plans'
     | 'insurance-categories'
     | 'family'
+    | 'providers'
     | 'todos';
 
   // Props for deep linking (e.g., /setup?tab=bills&edit=<id>)
@@ -151,6 +166,7 @@
   let viewingInsurancePlan: InsurancePlan | null = null;
   let viewingInsuranceCategory: InsuranceCategory | null = null;
   let viewingFamilyMember: FamilyMember | null = null;
+  let viewingInsuranceProvider: InsuranceProvider | null = null;
   let editingPaymentSource: PaymentSource | null = null;
   let editingBill: Bill | null = null;
   let editingIncome: Income | null = null;
@@ -158,6 +174,7 @@
   let editingInsurancePlan: InsurancePlan | null = null;
   let editingInsuranceCategory: InsuranceCategory | null = null;
   let editingFamilyMember: FamilyMember | null = null;
+  let editingInsuranceProvider: InsuranceProvider | null = null;
 
   // Todos use Modal instead of Drawer (per spec)
   let showTodoModal = false;
@@ -172,6 +189,7 @@
   let insurancePlanFormRef: InsurancePlanForm | null = null;
   let insuranceCategoryFormRef: InsuranceCategoryForm | null = null;
   let familyMemberFormRef: FamilyMemberForm | null = null;
+  let insuranceProviderFormRef: InsuranceProviderForm | null = null;
 
   // Check if the current form has unsaved changes
   // This function is passed to Drawer and called when attempting to close
@@ -193,6 +211,8 @@
         return insuranceCategoryFormRef?.isDirty?.() ?? false;
       case 'family':
         return familyMemberFormRef?.isDirty?.() ?? false;
+      case 'providers':
+        return insuranceProviderFormRef?.isDirty?.() ?? false;
       default:
         return false;
     }
@@ -222,6 +242,9 @@
       case 'family':
         await familyMemberFormRef?.handleSubmit();
         break;
+      case 'providers':
+        await insuranceProviderFormRef?.handleSubmit();
+        break;
     }
   }
 
@@ -243,6 +266,7 @@
     { id: 'insurance-plans', label: 'Insurance Plans' },
     { id: 'insurance-categories', label: 'Insurance Categories' },
     { id: 'family', label: 'Family' },
+    { id: 'providers', label: 'Providers' },
     { id: 'todos', label: 'Todos' },
   ];
 
@@ -257,6 +281,7 @@
       loadInsurancePlans(),
       loadInsuranceCategories(),
       loadFamilyMembers(),
+      loadInsuranceProviders(),
       loadTodos(),
     ]);
 
@@ -282,6 +307,7 @@
       'insurance-plans',
       'insurance-categories',
       'family',
+      'providers',
       'todos',
     ];
     return validTabs.includes(tab as TabId);
@@ -470,6 +496,8 @@
         return 'Insurance Category';
       case 'family':
         return 'Family Member';
+      case 'providers':
+        return 'Provider';
       case 'todos':
         return 'Todo';
     }
@@ -489,6 +517,7 @@
       | Category
       | InsurancePlan
       | InsuranceCategory
+      | InsuranceProvider
       | FamilyMember
   ) {
     drawerMode = 'view';
@@ -517,6 +546,9 @@
       case 'family':
         viewingFamilyMember = item as FamilyMember;
         break;
+      case 'providers':
+        viewingInsuranceProvider = item as InsuranceProvider;
+        break;
     }
 
     drawerOpen = true;
@@ -530,6 +562,7 @@
       | Category
       | InsurancePlan
       | InsuranceCategory
+      | InsuranceProvider
       | FamilyMember
   ) {
     drawerMode = 'edit';
@@ -558,6 +591,9 @@
       case 'family':
         editingFamilyMember = item as FamilyMember;
         break;
+      case 'providers':
+        editingInsuranceProvider = item as InsuranceProvider;
+        break;
     }
 
     drawerOpen = true;
@@ -572,6 +608,7 @@
     if (viewingInsurancePlan) editingInsurancePlan = viewingInsurancePlan;
     if (viewingInsuranceCategory) editingInsuranceCategory = viewingInsuranceCategory;
     if (viewingFamilyMember) editingFamilyMember = viewingFamilyMember;
+    if (viewingInsuranceProvider) editingInsuranceProvider = viewingInsuranceProvider;
 
     // Clear viewing items
     viewingPaymentSource = null;
@@ -581,6 +618,7 @@
     viewingInsurancePlan = null;
     viewingInsuranceCategory = null;
     viewingFamilyMember = null;
+    viewingInsuranceProvider = null;
 
     drawerMode = 'edit';
   }
@@ -593,6 +631,7 @@
     viewingInsurancePlan = null;
     viewingInsuranceCategory = null;
     viewingFamilyMember = null;
+    viewingInsuranceProvider = null;
     editingPaymentSource = null;
     editingBill = null;
     editingIncome = null;
@@ -600,6 +639,7 @@
     editingInsurancePlan = null;
     editingInsuranceCategory = null;
     editingFamilyMember = null;
+    editingInsuranceProvider = null;
   }
 
   function closeDrawer() {
@@ -641,6 +681,10 @@
         case 'family':
           await deleteFamilyMember(id);
           success('Family member deleted');
+          break;
+        case 'providers':
+          await deleteInsuranceProvider(id);
+          success('Provider deleted');
           break;
         case 'todos':
           await deleteTodo(id);
@@ -884,6 +928,8 @@
                 {$insuranceCategories.length}
               {:else if activeTab === 'family'}
                 {$familyMembers.length}
+              {:else if activeTab === 'providers'}
+                {$insuranceProviders.length}
               {:else if activeTab === 'todos'}
                 {$todos.length}
               {/if})
@@ -1003,6 +1049,21 @@
                 onDelete={(member) => confirmDelete({ id: member.id, name: member.name })}
               />
             {/if}
+          {:else if activeTab === 'providers'}
+            {#if $insuranceProviders.length === 0}
+              <div class="empty-state">
+                <p>No providers yet.</p>
+                <p class="hint">Add healthcare providers to select from when creating claims.</p>
+              </div>
+            {:else}
+              <InsuranceProvidersList
+                providers={$insuranceProviders}
+                categoriesById={$activeCategories}
+                onView={openViewDrawer}
+                onEdit={openEditDrawer}
+                onDelete={(provider) => confirmDelete({ id: provider.id, name: provider.name })}
+              />
+            {/if}
           {:else if activeTab === 'todos'}
             {#if $todos.length === 0}
               <div class="empty-state">
@@ -1058,6 +1119,13 @@
         />
       {:else if activeTab === 'family' && viewingFamilyMember}
         <FamilyMemberView item={viewingFamilyMember} onEdit={switchToEdit} onClose={closeDrawer} />
+      {:else if activeTab === 'providers' && viewingInsuranceProvider}
+        <InsuranceProviderView
+          item={viewingInsuranceProvider}
+          categoriesById={$activeCategories}
+          onEdit={switchToEdit}
+          onClose={closeDrawer}
+        />
       {/if}
     {:else if activeTab === 'payment-sources'}
       <PaymentSourceForm
@@ -1105,6 +1173,13 @@
       <FamilyMemberForm
         bind:this={familyMemberFormRef}
         editingItem={editingFamilyMember}
+        onSave={handleSave}
+        onCancel={closeDrawer}
+      />
+    {:else if activeTab === 'providers'}
+      <InsuranceProviderForm
+        bind:this={insuranceProviderFormRef}
+        editingItem={editingInsuranceProvider}
         onSave={handleSave}
         onCancel={closeDrawer}
       />

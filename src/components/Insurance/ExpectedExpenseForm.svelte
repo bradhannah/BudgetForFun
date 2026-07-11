@@ -10,6 +10,7 @@
   } from '../../stores/insurance-claims';
   import { activeCategories, loadInsuranceCategories } from '../../stores/insurance-categories';
   import { activeMembers, loadFamilyMembers } from '../../stores/family-members';
+  import { activeProviders, loadInsuranceProviders } from '../../stores/insurance-providers';
   import { paymentSources, loadPaymentSourcesIfNeeded } from '../../stores/payment-sources';
   import { success, error as showError } from '../../stores/toast';
   import type { InsuranceClaim } from '../../types/insurance';
@@ -24,7 +25,7 @@
   // Form state
   let family_member_id = editingItem?.family_member_id || '';
   let category_id = editingItem?.category_id || '';
-  let provider_name = editingItem?.provider_name || '';
+  let provider_id = editingItem?.provider_id || '';
   let appointment_date = editingItem?.service_date || '';
   let expectedCostDollars = editingItem?.expected_cost
     ? (editingItem.expected_cost / 100).toFixed(2)
@@ -46,7 +47,15 @@
     loadInsuranceCategories();
     loadFamilyMembers();
     loadPaymentSourcesIfNeeded();
+    loadInsuranceProviders();
   });
+
+  $: filteredProviders = category_id
+    ? $activeProviders.filter((provider) => provider.category_ids.includes(category_id))
+    : [];
+  $: if (provider_id && !filteredProviders.some((provider) => provider.id === provider_id)) {
+    provider_id = '';
+  }
 
   // Filter to non-investment, non-savings payment sources for bills
   $: availablePaymentSources = $paymentSources.filter(
@@ -57,7 +66,7 @@
   $: if (editingItem) {
     family_member_id = editingItem.family_member_id;
     category_id = editingItem.category_id;
-    provider_name = editingItem.provider_name || '';
+    provider_id = editingItem.provider_id || '';
     appointment_date = editingItem.service_date;
     expectedCostDollars = editingItem.expected_cost
       ? (editingItem.expected_cost / 100).toFixed(2)
@@ -74,7 +83,7 @@
       return !!(
         family_member_id ||
         category_id ||
-        provider_name ||
+        provider_id ||
         appointment_date ||
         expectedCostDollars ||
         expectedReimbursementDollars
@@ -83,7 +92,7 @@
     return (
       family_member_id !== editingItem.family_member_id ||
       category_id !== editingItem.category_id ||
-      provider_name !== (editingItem.provider_name || '') ||
+      provider_id !== (editingItem.provider_id || '') ||
       appointment_date !== editingItem.service_date ||
       dollarsToCents(expectedCostDollars) !== (editingItem.expected_cost || 0) ||
       dollarsToCents(expectedReimbursementDollars) !== (editingItem.expected_reimbursement || 0)
@@ -142,9 +151,7 @@
         payment_source_id,
       };
 
-      if (provider_name.trim()) {
-        data.provider_name = provider_name.trim();
-      }
+      data.provider_id = provider_id;
 
       if (editingItem) {
         await updateExpectedExpense(editingItem.id, data);
@@ -169,8 +176,9 @@
 
   // Get category name for bill naming preview
   $: selectedCategory = $activeCategories.find((c) => c.id === category_id);
+  $: selectedProvider = filteredProviders.find((provider) => provider.id === provider_id);
   $: billNamePreview = selectedCategory
-    ? `${selectedCategory.name}${provider_name ? `: ${provider_name}` : ''}`
+    ? `${selectedCategory.name}${selectedProvider ? `: ${selectedProvider.name}` : ''}`
     : '';
 </script>
 
@@ -228,15 +236,16 @@
   </div>
 
   <div class="form-group">
-    <label for="expected-provider">Provider Name</label>
-    <input
-      id="expected-provider"
-      type="text"
-      bind:value={provider_name}
-      placeholder="e.g., Wellness Clinic, Dr. Smith"
-      disabled={saving || !canSubmit}
-    />
-    <div class="help-text">Optional: Name of the service provider</div>
+    <label for="expected-provider">Provider</label>
+    <select id="expected-provider" bind:value={provider_id} disabled={saving || !category_id}>
+      <option value="">-- None --</option>
+      {#each filteredProviders as provider (provider.id)}
+        <option value={provider.id}>{provider.name}</option>
+      {/each}
+    </select>
+    <div class="help-text">
+      Providers are filtered by category. <a href="/setup?tab=providers">Manage providers</a>
+    </div>
   </div>
 
   <div class="form-group">
@@ -429,6 +438,10 @@
     font-size: 0.75rem;
     color: var(--text-tertiary);
     margin-top: var(--space-1);
+  }
+
+  .help-text a {
+    color: var(--accent);
   }
 
   .out-of-pocket-preview {

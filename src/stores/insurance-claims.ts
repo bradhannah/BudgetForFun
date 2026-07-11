@@ -75,6 +75,7 @@ export interface ClaimData {
   total_amount: number;
   description?: string;
   provider_name?: string;
+  provider_id?: string;
   expected_reimbursement?: number;
 }
 
@@ -83,6 +84,7 @@ export interface ExpectedExpenseData {
   family_member_id: string;
   category_id: string;
   provider_name?: string;
+  provider_id?: string;
   appointment_date: string; // When the service will occur
   expected_cost: number; // Estimated cost in cents
   expected_reimbursement: number; // Estimated reimbursement in cents

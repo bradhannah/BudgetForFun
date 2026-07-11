@@ -5,10 +5,12 @@ import { StorageServiceImpl } from './storage';
 import { InsuranceCategoriesServiceImpl } from './insurance-categories-service';
 import { InsurancePlansServiceImpl } from './insurance-plans-service';
 import { FamilyMembersServiceImpl } from './family-members-service';
+import { InsuranceProvidersServiceImpl } from './insurance-providers-service';
 import type { StorageService } from './storage';
 import type { InsuranceCategoriesService } from './insurance-categories-service';
 import type { InsurancePlansService } from './insurance-plans-service';
 import type { FamilyMembersService } from './family-members-service';
+import type { InsuranceProvidersService } from './insurance-providers-service';
 import { parseLocalDate } from '../utils/due-date';
 import type {
   InsuranceClaim,
@@ -43,7 +45,12 @@ export interface InsuranceClaimsService {
       InsuranceClaim,
       'family_member_id' | 'category_id' | 'service_date' | 'total_amount'
     > &
-      Partial<Pick<InsuranceClaim, 'description' | 'provider_name' | 'expected_reimbursement'>>
+      Partial<
+        Pick<
+          InsuranceClaim,
+          'description' | 'provider_name' | 'provider_id' | 'expected_reimbursement'
+        >
+      >
   ): Promise<InsuranceClaim>;
   update(
     id: string,
@@ -53,6 +60,7 @@ export interface InsuranceClaimsService {
         | 'family_member_id'
         | 'category_id'
         | 'description'
+        | 'provider_id'
         | 'provider_name'
         | 'service_date'
         | 'total_amount'
@@ -110,6 +118,7 @@ export interface InsuranceClaimsService {
     family_member_id: string;
     category_id: string;
     provider_name?: string;
+    provider_id?: string;
     appointment_date: string; // When the service will occur (YYYY-MM-DD)
     expected_cost: number; // Estimated cost in cents
     expected_reimbursement: number; // Estimated reimbursement in cents
@@ -121,6 +130,7 @@ export interface InsuranceClaimsService {
       family_member_id?: string;
       category_id?: string;
       provider_name?: string;
+      provider_id?: string;
       appointment_date?: string;
       expected_cost?: number;
       expected_reimbursement?: number;
@@ -139,12 +149,14 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
   private categoriesService: InsuranceCategoriesService;
   private plansService: InsurancePlansService;
   private familyMembersService: FamilyMembersService;
+  private providersService: InsuranceProvidersService;
 
   constructor() {
     this.storage = StorageServiceImpl.getInstance();
     this.categoriesService = new InsuranceCategoriesServiceImpl();
     this.plansService = new InsurancePlansServiceImpl();
     this.familyMembersService = new FamilyMembersServiceImpl();
+    this.providersService = new InsuranceProvidersServiceImpl();
   }
 
   /**
@@ -210,6 +222,34 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
     return (await this.storage.readJSON<InsuranceClaim[]>(STORAGE_PATH)) || [];
   }
 
+  /**
+   * Resolve a provider_id to a provider name snapshot.
+   * Returns { providerId, providerName } where providerId may be undefined (cleared)
+   * and providerName is the provider's name or undefined when no provider is selected.
+   * Throws if provider_id is provided but not found.
+   */
+  private async resolveProvider(
+    providerId: string | undefined | null,
+    categoryId: string
+  ): Promise<{ providerId: string | undefined; providerName: string | undefined }> {
+    // Treat empty string or null as "cleared"
+    if (!providerId) {
+      return { providerId: undefined, providerName: undefined };
+    }
+
+    const provider = await this.providersService.getById(providerId);
+    if (!provider) {
+      throw new Error('Provider not found');
+    }
+    if (!provider.is_active) {
+      throw new Error('Provider is inactive');
+    }
+    if (!provider.category_ids.includes(categoryId)) {
+      throw new Error('Provider is not available for this category');
+    }
+    return { providerId: provider.id, providerName: provider.name };
+  }
+
   public async getAll(filters?: ClaimFilters): Promise<InsuranceClaim[]> {
     try {
       let claims = await this.getAllRaw();
@@ -253,7 +293,12 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
       InsuranceClaim,
       'family_member_id' | 'category_id' | 'service_date' | 'total_amount'
     > &
-      Partial<Pick<InsuranceClaim, 'description' | 'provider_name' | 'expected_reimbursement'>>
+      Partial<
+        Pick<
+          InsuranceClaim,
+          'description' | 'provider_name' | 'provider_id' | 'expected_reimbursement'
+        >
+      >
   ): Promise<InsuranceClaim> {
     try {
       // Validate
@@ -273,6 +318,14 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
       if (!category) {
         throw new Error('Category not found');
       }
+
+      // Resolve provider_id -> provider_name snapshot
+      // If provider_id is provided it takes precedence; otherwise fall back to legacy provider_name
+      const { providerId, providerName } = await this.resolveProvider(
+        data.provider_id,
+        data.category_id
+      );
+      const finalProviderName = providerId ? providerName : data.provider_name;
 
       const claims = await this.getAllRaw();
       const claimNumber = await this.getNextClaimNumber();
@@ -323,7 +376,8 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
         category_id: data.category_id,
         category_name: category.name,
         description: data.description,
-        provider_name: data.provider_name,
+        provider_name: finalProviderName,
+        provider_id: providerId,
         service_date: data.service_date,
         total_amount: data.total_amount,
         status: 'draft',
@@ -361,6 +415,7 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
         | 'family_member_id'
         | 'category_id'
         | 'description'
+        | 'provider_id'
         | 'provider_name'
         | 'service_date'
         | 'total_amount'
@@ -397,10 +452,32 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
         categoryName = category.name;
       }
 
+      // Resolve provider_id changes:
+      // - If provider_id is explicitly in updates, resolve to provider name (or clear)
+      // - If provider_id is not in updates but provider_name is, use the provided provider_name
+      // - Otherwise keep existing provider_id/provider_name
+      let resolvedProviderId = claims[index].provider_id;
+      let resolvedProviderName = claims[index].provider_name;
+
+      if (updates.provider_id !== undefined) {
+        // provider_id is being explicitly changed (could be a real id, or empty string to clear)
+        const { providerId, providerName } = await this.resolveProvider(
+          updates.provider_id,
+          updates.category_id || claims[index].category_id
+        );
+        resolvedProviderId = providerId;
+        resolvedProviderName = providerName;
+      } else if (updates.provider_name !== undefined) {
+        // Legacy: provider_name was changed without provider_id
+        resolvedProviderName = updates.provider_name || undefined;
+      }
+
       const now = new Date().toISOString();
       const updatedClaim: InsuranceClaim = {
         ...claims[index],
         ...updates,
+        provider_id: resolvedProviderId,
+        provider_name: resolvedProviderName,
         family_member_name: familyMemberName,
         category_name: categoryName,
         updated_at: now,
@@ -991,6 +1068,7 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
     family_member_id: string;
     category_id: string;
     provider_name?: string;
+    provider_id?: string;
     appointment_date: string;
     expected_cost: number;
     expected_reimbursement: number;
@@ -1017,6 +1095,12 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
       const insuranceCategory = await this.categoriesService.getById(data.category_id);
       if (!insuranceCategory) throw new Error('Insurance category not found');
 
+      // Resolve provider_id -> provider_name snapshot
+      const { providerId, providerName } = await this.resolveProvider(
+        data.provider_id,
+        data.category_id
+      );
+
       const now = new Date().toISOString();
       const claims = await this.getAllRaw();
 
@@ -1027,7 +1111,8 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
         family_member_name: familyMember.name,
         category_id: data.category_id,
         category_name: insuranceCategory.name,
-        provider_name: data.provider_name,
+        provider_name: providerId ? providerName : data.provider_name,
+        provider_id: providerId,
         service_date: data.appointment_date,
         total_amount: data.expected_cost,
         status: 'expected',
@@ -1068,6 +1153,7 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
       family_member_id?: string;
       category_id?: string;
       provider_name?: string;
+      provider_id?: string;
       appointment_date?: string;
       expected_cost?: number;
       expected_reimbursement?: number;
@@ -1105,6 +1191,20 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
         categoryName = insuranceCategory.name;
       }
 
+      // Resolve provider_id changes (same logic as update())
+      let resolvedProviderId = claim.provider_id;
+      let resolvedProviderName = claim.provider_name;
+      if (updates.provider_id !== undefined) {
+        const { providerId, providerName } = await this.resolveProvider(
+          updates.provider_id,
+          updates.category_id || claim.category_id
+        );
+        resolvedProviderId = providerId;
+        resolvedProviderName = providerName;
+      } else if (updates.provider_name !== undefined) {
+        resolvedProviderName = updates.provider_name || undefined;
+      }
+
       const expectedCost =
         updates.expected_cost !== undefined ? updates.expected_cost : claim.expected_cost || 0;
       const expectedReimbursement =
@@ -1119,7 +1219,8 @@ export class InsuranceClaimsServiceImpl implements InsuranceClaimsService {
         family_member_name: familyMemberName,
         category_id: updates.category_id || claim.category_id,
         category_name: categoryName,
-        provider_name: updates.provider_name ?? claim.provider_name,
+        provider_id: resolvedProviderId,
+        provider_name: resolvedProviderName,
         service_date: updates.appointment_date || claim.service_date,
         total_amount: expectedCost,
         expected_cost: expectedCost,

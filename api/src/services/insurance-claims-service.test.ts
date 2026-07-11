@@ -17,6 +17,7 @@ import type {
   InsuranceCategory,
   InsurancePlan,
   FamilyMember,
+  InsuranceProvider,
   ClaimSubmission as _ClaimSubmission,
 } from '../types';
 
@@ -105,6 +106,17 @@ describe('InsuranceClaimsService', () => {
     },
   ];
 
+  const sampleProviders: InsuranceProvider[] = [
+    {
+      id: 'provider-dental-001',
+      name: 'Dr. Managed Dental',
+      category_ids: ['ic-dental-001'],
+      is_active: true,
+      created_at: '2025-01-01T00:00:00.000Z',
+      updated_at: '2025-01-01T00:00:00.000Z',
+    },
+  ];
+
   beforeAll(async () => {
     // Create a unique test directory
     testDir = join(tmpdir(), `insurance-claims-test-${Date.now()}`);
@@ -132,6 +144,10 @@ describe('InsuranceClaimsService', () => {
     await writeFile(
       join(testDir, 'entities', 'insurance-plans.json'),
       JSON.stringify(samplePlans, null, 2)
+    );
+    await writeFile(
+      join(testDir, 'entities', 'insurance-providers.json'),
+      JSON.stringify(sampleProviders, null, 2)
     );
 
     // Create new service instance
@@ -193,6 +209,47 @@ describe('InsuranceClaimsService', () => {
 
       expect(claim1.claim_number).toBe(1);
       expect(claim2.claim_number).toBe(2);
+    });
+
+    test('should snapshot, update, and clear a managed provider', async () => {
+      const claim = await service.create({
+        family_member_id: 'fm-john-001',
+        category_id: 'ic-dental-001',
+        provider_id: 'provider-dental-001',
+        service_date: '2025-06-15',
+        total_amount: 15000,
+      });
+
+      expect(claim.provider_id).toBe('provider-dental-001');
+      expect(claim.provider_name).toBe('Dr. Managed Dental');
+
+      sampleProviders[0].name = 'Renamed Dental';
+      await writeFile(
+        join(testDir, 'entities', 'insurance-providers.json'),
+        JSON.stringify(sampleProviders, null, 2)
+      );
+      expect((await service.getById(claim.id))?.provider_name).toBe('Dr. Managed Dental');
+
+      const updated = await service.update(claim.id, { provider_id: 'provider-dental-001' });
+      expect(updated?.provider_name).toBe('Renamed Dental');
+
+      const cleared = await service.update(claim.id, { provider_id: '' });
+      expect(cleared?.provider_id).toBeUndefined();
+      expect(cleared?.provider_name).toBeUndefined();
+
+      sampleProviders[0].name = 'Dr. Managed Dental';
+    });
+
+    test('should reject providers outside the selected category', async () => {
+      await expect(
+        service.create({
+          family_member_id: 'fm-john-001',
+          category_id: 'ic-vision-002',
+          provider_id: 'provider-dental-001',
+          service_date: '2025-06-15',
+          total_amount: 15000,
+        })
+      ).rejects.toThrow('Provider is not available for this category');
     });
 
     test('should get claim by id', async () => {

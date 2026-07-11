@@ -14,6 +14,7 @@
   } from '../../stores/insurance-claims';
   import { loadInsurancePlans, activePlans } from '../../stores/insurance-plans';
   import { loadInsuranceCategories, activeCategories } from '../../stores/insurance-categories';
+  import { loadInsuranceProviders } from '../../stores/insurance-providers';
 
   import ClaimsSummary from './ClaimsSummary.svelte';
   import ClaimsList from './ClaimsList.svelte';
@@ -41,6 +42,7 @@
     await Promise.all([
       loadInsurancePlans(),
       loadInsuranceCategories(),
+      loadInsuranceProviders(),
       loadInsuranceClaims(),
       loadClaimsSummary(),
     ]);

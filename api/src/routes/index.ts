@@ -138,6 +138,13 @@ import {
 } from './handlers/insurance-plans.handlers';
 
 import {
+  createInsuranceProvidersHandlerGET,
+  createInsuranceProvidersHandlerPOST,
+  createInsuranceProvidersHandlerPUT,
+  createInsuranceProvidersHandlerDELETE,
+} from './handlers/insurance-providers.handlers';
+
+import {
   createInsuranceCategoriesHandlerGET,
   createInsuranceCategoriesHandlerPOST,
   createInsuranceCategoriesHandlerPUT,
@@ -355,6 +362,32 @@ export const routes: Array<{ path: string; definition: RouteDefinition }> = [
     definition: {
       method: 'DELETE',
       handler: createInsuranceCategoriesHandlerDELETE(),
+      hasPathParam: true,
+    },
+  },
+
+  // Insurance Providers
+  {
+    path: '/api/insurance-providers',
+    definition: { method: 'GET', handler: createInsuranceProvidersHandlerGET() },
+  },
+  {
+    path: '/api/insurance-providers',
+    definition: { method: 'POST', handler: createInsuranceProvidersHandlerPOST() },
+  },
+  {
+    path: '/api/insurance-providers',
+    definition: {
+      method: 'PUT',
+      handler: createInsuranceProvidersHandlerPUT(),
+      hasPathParam: true,
+    },
+  },
+  {
+    path: '/api/insurance-providers',
+    definition: {
+      method: 'DELETE',
+      handler: createInsuranceProvidersHandlerDELETE(),
       hasPathParam: true,
     },
   },

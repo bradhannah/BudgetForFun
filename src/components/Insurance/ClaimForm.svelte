@@ -4,6 +4,7 @@
    */
   import { createClaim, updateClaim, type ClaimData } from '../../stores/insurance-claims';
   import { activeCategories, loadInsuranceCategories } from '../../stores/insurance-categories';
+  import { activeProviders, loadInsuranceProviders } from '../../stores/insurance-providers';
   import { activeMembers, loadFamilyMembers } from '../../stores/family-members';
   import { success, error as showError } from '../../stores/toast';
   import type { InsuranceClaim } from '../../types/insurance';
@@ -18,7 +19,7 @@
   let family_member_id = editingItem?.family_member_id || '';
   let category_id = editingItem?.category_id || '';
   let description = editingItem?.description || '';
-  let provider_name = editingItem?.provider_name || '';
+  let provider_id = editingItem?.provider_id || '';
   let service_date = editingItem?.service_date || '';
   let amountDollars = editingItem ? (editingItem.total_amount / 100).toFixed(2) : '';
   let expectedReimbursementDollars = editingItem?.expected_reimbursement
@@ -33,7 +34,7 @@
     family_member_id: string;
     category_id: string;
     description: string;
-    provider_name: string;
+    provider_id: string;
     service_date: string;
     amountDollars: string;
     expectedReimbursementDollars: string;
@@ -43,7 +44,7 @@
     family_member_id: editingItem?.family_member_id || '',
     category_id: editingItem?.category_id || '',
     description: editingItem?.description || '',
-    provider_name: editingItem?.provider_name || '',
+    provider_id: editingItem?.provider_id || '',
     service_date: editingItem?.service_date || '',
     amountDollars: editingItem ? (editingItem.total_amount / 100).toFixed(2) : '',
     expectedReimbursementDollars: editingItem?.expected_reimbursement
@@ -57,7 +58,7 @@
       family_member_id !== initialValues.family_member_id ||
       category_id !== initialValues.category_id ||
       description !== initialValues.description ||
-      provider_name !== initialValues.provider_name ||
+      provider_id !== initialValues.provider_id ||
       service_date !== initialValues.service_date ||
       amountDollars !== initialValues.amountDollars ||
       expectedReimbursementDollars !== initialValues.expectedReimbursementDollars
@@ -67,14 +68,29 @@
   onMount(() => {
     loadInsuranceCategories();
     loadFamilyMembers();
+    loadInsuranceProviders();
   });
+
+  // Category-filtered providers (strict filter: only providers linked to selected category)
+  $: filteredProviders = category_id
+    ? $activeProviders.filter((p) => p.category_ids.includes(category_id))
+    : [];
+
+  // When category changes, clear provider if it's no longer in the filtered list
+  $: if (category_id && provider_id && !filteredProviders.some((p) => p.id === provider_id)) {
+    provider_id = '';
+  }
+  // If category is cleared entirely, also clear provider
+  $: if (!category_id && provider_id) {
+    provider_id = '';
+  }
 
   // Reset form when editingItem changes
   $: if (editingItem) {
     family_member_id = editingItem.family_member_id;
     category_id = editingItem.category_id;
     description = editingItem.description || '';
-    provider_name = editingItem.provider_name || '';
+    provider_id = editingItem.provider_id || '';
     service_date = editingItem.service_date;
     amountDollars = (editingItem.total_amount / 100).toFixed(2);
     expectedReimbursementDollars = editingItem.expected_reimbursement
@@ -85,7 +101,7 @@
       family_member_id: editingItem.family_member_id,
       category_id: editingItem.category_id,
       description: editingItem.description || '',
-      provider_name: editingItem.provider_name || '',
+      provider_id: editingItem.provider_id || '',
       service_date: editingItem.service_date,
       amountDollars: (editingItem.total_amount / 100).toFixed(2),
       expectedReimbursementDollars: editingItem.expected_reimbursement
@@ -131,9 +147,9 @@
       if (description.trim()) {
         claimData.description = description.trim();
       }
-      if (provider_name.trim()) {
-        claimData.provider_name = provider_name.trim();
-      }
+      // Always send provider_id (even if empty string) to force remapping of legacy
+      // free-text provider_name to a managed provider, or to clear it if "None" is selected
+      claimData.provider_id = provider_id;
 
       const reimbursementCents = dollarsToCents(expectedReimbursementDollars);
       if (reimbursementCents > 0) {
@@ -248,15 +264,16 @@
   </div>
 
   <div class="form-group">
-    <label for="claim-provider">Provider Name</label>
-    <input
-      id="claim-provider"
-      type="text"
-      bind:value={provider_name}
-      placeholder="e.g., Dr. Smith, ABC Pharmacy"
-      disabled={saving || !canSubmit}
-    />
-    <div class="help-text">Optional: Name of the healthcare provider</div>
+    <label for="claim-provider">Provider</label>
+    <select id="claim-provider" bind:value={provider_id} disabled={saving || !category_id}>
+      <option value="">-- None --</option>
+      {#each filteredProviders as provider (provider.id)}
+        <option value={provider.id}>{provider.name}</option>
+      {/each}
+    </select>
+    <div class="help-text">
+      Providers are filtered by category. <a href="/setup?tab=providers">Manage providers</a>
+    </div>
   </div>
 
   <div class="form-group">
@@ -386,6 +403,10 @@
     font-size: 0.75rem;
     color: var(--text-tertiary);
     margin-top: 4px;
+  }
+
+  .help-text a {
+    color: var(--accent);
   }
 
   .form-actions {

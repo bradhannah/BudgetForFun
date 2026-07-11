@@ -45,6 +45,16 @@ export interface InsuranceCategory {
   updated_at: string;
 }
 
+export interface InsuranceProvider {
+  id: string;
+  name: string;
+  description?: string;
+  category_ids: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ClaimDocument {
   id: string;
   filename: string;
@@ -90,6 +100,7 @@ export interface InsuranceClaim {
   category_name: string;
   description?: string;
   provider_name?: string;
+  provider_id?: string;
   service_date: string;
   total_amount: number;
   status: ClaimStatus;
